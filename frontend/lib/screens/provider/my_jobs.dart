@@ -1214,7 +1214,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
-                                '⏳ Đang chờ bên kia phản hồi...',
+                                ' Đang chờ bên kia phản hồi...',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(fontSize: 13, color: Colors.grey, fontStyle: FontStyle.italic),
                               ),
