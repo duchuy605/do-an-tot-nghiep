@@ -1042,7 +1042,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                 children: [
                   Icon(Icons.assignment_rounded, color: orangeColor, size: 24),
                   const SizedBox(width: 8),
-                  Text('Chi Tiết Ca Làm #$id', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: darkColor)),
+                  Text('Chi Tiết Ca Làm ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: darkColor)),
                 ],
               ),
               const SizedBox(height: 6),
