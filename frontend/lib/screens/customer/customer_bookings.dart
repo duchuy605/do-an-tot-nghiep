@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/customer/customer_bookings_viewmodel.dart';
 import '../../models/booking_model.dart';
 import 'booking_detail.dart';
@@ -59,7 +60,7 @@ class CustomerBookingsScreenState extends State<CustomerBookingsScreen> with Sin
   }
 
   String _formatPrice(double amount) {
-    return '${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    return '${NumberFormat('#,###', 'vi_VN').format(amount.toInt())} đ';
   }
 
   // Kiểm tra đơn có ca hoàn thành nào chưa đánh giá không

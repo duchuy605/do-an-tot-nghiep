@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/provider/my_jobs_viewmodel.dart';
 
 class MyJobsScreen extends StatefulWidget {
@@ -451,7 +452,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
       final double money = double.tryParse(job['TongTien']?.toString() ?? '0') ?? 0;
       totalEarnings += money * 0.8;
     }
-    final String earningsStr = '${totalEarnings.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    final String earningsStr = '${NumberFormat('#,###', 'vi_VN').format(totalEarnings.toInt())} đ';
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -669,7 +670,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                 final String end = job['GioKetThuc']?.substring(0, 5) ?? '';
                 final double money = double.tryParse(job['TongTien']?.toString() ?? '0') ?? 0;
                 final double providerEarnings = money * 0.8;
-                final String earningsStr = '${providerEarnings.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+                final String earningsStr = '${NumberFormat('#,###', 'vi_VN').format(providerEarnings.toInt())} đ';
 
                 // Xác định màu và text trạng thái
                 Color statusColor;
@@ -818,7 +819,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
     final int status = job['TrangThaiDonHang'] ?? 1; // 0: Cho xac nhan, 1: Da nhan, 2: Hoan thanh, 3: Huy
     final double money = double.tryParse(job['TongTien']?.toString() ?? '0') ?? 0;
     final double providerEarnings = money * 0.8;
-    final String earningsStr = '${providerEarnings.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    final String earningsStr = '${NumberFormat('#,###', 'vi_VN').format(providerEarnings.toInt())} đ';
 
     final String date = job['NgayLamViec'] ?? '';
     final String start = job['GioBatDau']?.substring(0, 5) ?? '';
@@ -998,9 +999,9 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
     final double money = double.tryParse(job['TongTien']?.toString() ?? '0') ?? 0;
     final double providerEarnings = money * 0.8;
     final double systemFee = money * 0.2;
-    final String moneyStr = '${money.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
-    final String earningsStr = '${providerEarnings.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
-    final String feeStr = '${systemFee.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    final String moneyStr = '${NumberFormat('#,###', 'vi_VN').format(money.toInt())} đ';
+    final String earningsStr = '${NumberFormat('#,###', 'vi_VN').format(providerEarnings.toInt())} đ';
+    final String feeStr = '${NumberFormat('#,###', 'vi_VN').format(systemFee.toInt())} đ';
 
     final String date = job['NgayLamViec'] ?? '';
     final String start = job['GioBatDau']?.substring(0, 5) ?? '';

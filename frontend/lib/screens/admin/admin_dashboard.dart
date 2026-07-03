@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/admin/admin_dashboard_viewmodel.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -24,7 +25,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   String _formatVND(double amt) {
-    return '${amt.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    return '${NumberFormat('#,###', 'vi_VN').format(amt.toInt())} đ';
   }
 
   Widget _buildStatCard({

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/customer/booking_detail_viewmodel.dart';
 import 'payment_screen.dart';
 
@@ -487,7 +488,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         }
 
         final booking = _viewModel.booking!;
-        final priceStr = '${booking.giaGoi.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+        final priceStr = '${NumberFormat('#,###', 'vi_VN').format(booking.giaGoi.toInt())} đ';
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -624,7 +625,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                       itemCount: booking.caLamViecs?.length ?? 0,
                       itemBuilder: (context, index) {
                         final shift = booking.caLamViecs![index];
-                        final shiftPrice = '${shift.tongTien.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+                        final shiftPrice = '${NumberFormat('#,###', 'vi_VN').format(shift.tongTien.toInt())} đ';
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/provider/job_board_viewmodel.dart';
 
 class JobBoardScreen extends StatefulWidget {
@@ -29,7 +30,7 @@ class JobBoardScreenState extends State<JobBoardScreen> {
 
   // Format số tiền có dấu phẩy
   String _formatMoney(double amount) {
-    return '${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    return '${NumberFormat('#,###', 'vi_VN').format(amount.toInt())} đ';
   }
 
   // Xử lý nhận 1 ca làm việc đơn lẻ
