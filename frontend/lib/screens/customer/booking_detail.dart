@@ -296,7 +296,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     if (response['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Đã $actionText yêu cầu đổi lịch thành công!'),
+          content: Text('Đã gửi yêu cầu đổi lịch'),
           backgroundColor: Colors.green,
         ),
       );
