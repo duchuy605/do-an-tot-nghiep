@@ -438,6 +438,7 @@ class ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             // CCCD field
                             TextFormField(
                               controller: _cccdController,
+                              enabled: false,
                               keyboardType: TextInputType.number,
                               style: const TextStyle(fontWeight: FontWeight.w500),
                               decoration: InputDecoration(
