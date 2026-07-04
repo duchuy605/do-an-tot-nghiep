@@ -14,12 +14,13 @@ const {
   NgayDacBiet,
   QuyDinhGia,
   QuyDinhKhungGio,
-  LoaiGoi
+  LoaiGoi,
+  LichSuDoiLich
 } = require('../models');
 const { getDurationInHours, getDayOfWeekVN, checkTimeInSlot } = require('../utils/tinh_gia');
 const { success, error } = require('../utils/phan_hoi');
 const { createBookingSchema } = require('../validators/booking.validator');
-const { createReviewSchema, createComplaintSchema } = require('../validators/others.validator');
+const { createReviewSchema, createComplaintSchema, rescheduleShiftSchema } = require('../validators/others.validator');
 const oCamManager = require('../sockets/o_cam_manager');
 
 class CustomerController {
@@ -37,6 +38,8 @@ class CustomerController {
     this.createReview = this.createReview.bind(this);
     this.createComplaint = this.createComplaint.bind(this);
     this.getPackages = this.getPackages.bind(this);
+    this.rescheduleShift = this.rescheduleShift.bind(this);
+    this.respondRescheduleShift = this.respondRescheduleShift.bind(this);
   }
 
   // Hàm tiện ích hỗ trợ tính giá chi tiết buổi làm
@@ -517,7 +520,17 @@ class CustomerController {
           { model: LoaiGoi, as: 'LoaiGoi' },
           { model: DatDichVu, as: 'DatDichVus', include: [{ model: DichVu, as: 'DichVu' }] },
           { model: CaLamViec, as: 'CaLamViecs', include: [
-            { model: NguoiDung, as: 'NhanVien', attributes: ['MaNguoiDung', 'HoTenNguoiDung', 'SoDienThoai', 'AnhDaiDien'] }
+            { model: NguoiDung, as: 'NhanVien', attributes: ['MaNguoiDung', 'HoTenNguoiDung', 'SoDienThoai', 'AnhDaiDien'] },
+            {
+              model: LichSuDoiLich,
+              as: 'LichSuDoiLichs',
+              where: { KetQua: 0 },
+              required: false,
+              include: [
+                { model: NguoiDung, as: 'NguoiYeuCau', attributes: ['MaNguoiDung', 'HoTenNguoiDung', 'VaiTro'] },
+                { model: NguoiDung, as: 'NguoiXuLy', attributes: ['MaNguoiDung', 'HoTenNguoiDung', 'VaiTro'] }
+              ]
+            }
           ] }
         ]
       });
@@ -612,6 +625,229 @@ class CustomerController {
       });
 
       return success(res, null, 'Hủy đơn đặt lịch thành công. Tiền đã được hoàn về ví của bạn.');
+    } catch (err) {
+      if (tx) await tx.rollback();
+      next(err);
+    }
+  }
+
+  async rescheduleShift(req, res, next) {
+    try {
+      const { error: valError } = rescheduleShiftSchema.validate(req.body);
+      if (valError) {
+        return error(res, valError.details[0].message, 400);
+      }
+
+      const userId = req.user.MaNguoiDung;
+      const userRole = req.user.VaiTro;
+      const caLamId = req.params.id;
+      const { NgayLamViec, GioBatDau, GioKetThuc, LyDo } = req.body;
+
+      const job = await CaLamViec.findByPk(caLamId, {
+        include: [{ model: DonDatLich, as: 'DonDatLich' }]
+      });
+      if (!job) {
+        return error(res, 'Ca làm việc không tồn tại', 404);
+      }
+
+      const isCustomerOwner = userRole === 1 && job.MaKhachHang === userId;
+      const isAssignedProvider = userRole === 2 && job.MaNhanVien === userId;
+      if (!isCustomerOwner && !isAssignedProvider) {
+        return error(res, 'Bạn không có quyền đổi ca làm việc này', 403);
+      }
+
+      if (![0, 1].includes(job.TrangThaiDonHang)) {
+        return error(res, 'Chỉ có thể đổi ca đang chờ xác nhận hoặc đang thực hiện', 400);
+      }
+
+      const targetUserId = isCustomerOwner ? job.MaNhanVien : job.MaKhachHang;
+      if (!targetUserId) {
+        return error(res, 'Ca làm việc chưa có nhân viên nên chưa thể gửi yêu cầu đổi lịch', 400);
+      }
+
+      const duration = getDurationInHours(GioBatDau, GioKetThuc);
+      if (duration <= 0) {
+        return error(res, 'Giờ kết thúc phải sau giờ bắt đầu', 400);
+      }
+
+      const newStart = new Date(`${NgayLamViec}T${GioBatDau.length === 5 ? `${GioBatDau}:00` : GioBatDau}`);
+      const newEnd = new Date(`${NgayLamViec}T${GioKetThuc.length === 5 ? `${GioKetThuc}:00` : GioKetThuc}`);
+      if (Number.isNaN(newStart.getTime()) || Number.isNaN(newEnd.getTime())) {
+        return error(res, 'Ngày hoặc giờ làm việc không hợp lệ', 400);
+      }
+
+      const minStartTime = new Date(Date.now() + 30 * 60 * 1000);
+      if (newStart < minStartTime) {
+        return error(res, 'Thời gian bắt đầu mới phải cách hiện tại ít nhất 30 phút', 400);
+      }
+
+      if (job.MaNhanVien) {
+        const conflicting = await CaLamViec.findOne({
+          where: {
+            MaCaLam: { [Op.ne]: job.MaCaLam },
+            MaNhanVien: job.MaNhanVien,
+            NgayLamViec,
+            TrangThaiDonHang: { [Op.in]: [0, 1] },
+            [Op.or]: [
+              { GioBatDau: { [Op.lt]: GioKetThuc }, GioKetThuc: { [Op.gt]: GioBatDau } }
+            ]
+          }
+        });
+
+        if (conflicting) {
+          return error(res, `Nhân viên đã có lịch vào ngày ${NgayLamViec} (${conflicting.GioBatDau} - ${conflicting.GioKetThuc}). Vui lòng chọn thời gian khác.`, 400);
+        }
+      }
+
+      const existingPendingRequest = await LichSuDoiLich.findOne({
+        where: {
+          MaCaLam: job.MaCaLam,
+          KetQua: 0
+        }
+      });
+      if (existingPendingRequest) {
+        return error(res, 'Ca làm việc này đang có yêu cầu đổi lịch chờ phản hồi', 400);
+      }
+
+      const request = await LichSuDoiLich.create({
+        MaCaLam: job.MaCaLam,
+        MaNguoiXuLy: targetUserId,
+        MaNguoiYeuCau: userId,
+        MaNhanVienMoi: job.MaNhanVien,
+        MaNhanVienCu: job.MaNhanVien,
+        NgayMoi: newStart,
+        GioBatDauMoi: newStart,
+        GioKetThucMoi: newEnd,
+        KetQua: 0,
+        NgayDoi: new Date()
+      });
+
+      const requesterName = req.user.HoTenNguoiDung || 'Người dùng';
+      const reasonText = LyDo && LyDo.trim() ? ` Lý do: ${LyDo.trim()}` : '';
+      oCamManager.guiThongBaoNguoiDung(targetUserId, {
+        tieuDe: 'Có yêu cầu đổi ca làm việc',
+        noiDung: `${requesterName} yêu cầu đổi ca #${job.MaCaLam} từ ${job.NgayLamViec} ${job.GioBatDau}-${job.GioKetThuc} sang ${NgayLamViec} ${GioBatDau}-${GioKetThuc}.${reasonText}`,
+        data: request
+      });
+
+      return success(res, request, 'Đã gửi yêu cầu đổi ca. Vui lòng chờ người còn lại đồng ý hoặc từ chối.', 201);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async respondRescheduleShift(req, res, next) {
+    let tx;
+    try {
+      const userId = req.user.MaNguoiDung;
+      const requestId = req.params.id;
+      const { DongY } = req.body;
+
+      if (typeof DongY !== 'boolean') {
+        return error(res, 'Vui lòng chọn đồng ý hoặc từ chối yêu cầu đổi lịch', 400);
+      }
+
+      const request = await LichSuDoiLich.findByPk(requestId, {
+        include: [{ model: CaLamViec, as: 'CaLamViec' }]
+      });
+      if (!request) {
+        return error(res, 'Yêu cầu đổi lịch không tồn tại', 404);
+      }
+
+      if (request.MaNguoiXuLy !== userId) {
+        return error(res, 'Bạn không có quyền phản hồi yêu cầu đổi lịch này', 403);
+      }
+
+      if (request.KetQua !== 0) {
+        return error(res, 'Yêu cầu đổi lịch này đã được phản hồi trước đó', 400);
+      }
+
+      const job = request.CaLamViec;
+      if (!job) {
+        return error(res, 'Ca làm việc không tồn tại', 404);
+      }
+
+      if (![0, 1].includes(job.TrangThaiDonHang)) {
+        return error(res, 'Chỉ có thể xử lý yêu cầu đổi lịch cho ca chưa hoàn thành hoặc chưa hủy', 400);
+      }
+      console.log(request.NgayMoi);
+      console.log(typeof request.NgayMoi);
+      console.log(request.NgayMoi instanceof Date);
+      const ngayMoi = request.NgayMoi.split(' ')[0];
+      const gioBatDauMoi = request.GioBatDauMoi;
+      const gioKetThucMoi = request.GioKetThucMoi;
+
+      if (DongY && job.MaNhanVien) {
+        const conflicting = await CaLamViec.findOne({
+          where: {
+            MaCaLam: { [Op.ne]: job.MaCaLam },
+            MaNhanVien: job.MaNhanVien,
+            NgayLamViec: ngayMoi,
+            TrangThaiDonHang: { [Op.in]: [0, 1] },
+            [Op.or]: [
+              { GioBatDau: { [Op.lt]: gioKetThucMoi }, GioKetThuc: { [Op.gt]: gioBatDauMoi } }
+            ]
+          }
+        });
+
+        if (conflicting) {
+          return error(res, `Nhân viên đã có lịch vào ngày ${ngayMoi} (${conflicting.GioBatDau} - ${conflicting.GioKetThuc}). Không thể đồng ý yêu cầu này.`, 400);
+        }
+      }
+
+      tx = await sequelize.transaction();
+
+      if (!DongY) {
+        await request.update({ KetQua: 2, NgayDoi: new Date() }, { transaction: tx });
+        await tx.commit();
+        tx = null;
+
+        oCamManager.guiThongBaoNguoiDung(request.MaNguoiYeuCau, {
+          tieuDe: 'Yêu cầu đổi ca bị từ chối',
+          noiDung: `${req.user.HoTenNguoiDung || 'Người dùng'} đã từ chối yêu cầu đổi ca #${job.MaCaLam}.`,
+          data: request
+        });
+
+        return success(res, request, 'Đã từ chối yêu cầu đổi ca');
+      }
+
+      await job.update({
+        NgayLamViec: ngayMoi,
+        GioBatDau: gioBatDauMoi,
+        GioKetThuc: gioKetThucMoi,
+        NgayCapNhat: new Date()
+      }, { transaction: tx });
+
+      await request.update({ KetQua: 1, NgayDoi: new Date() }, { transaction: tx });
+
+      const siblingJobs = await CaLamViec.findAll({
+        where: { MaDatLich: job.MaDatLich },
+        transaction: tx
+      });
+      const booking = await DonDatLich.findByPk(job.MaDatLich, { transaction: tx });
+      if (booking && siblingJobs.length === 1) {
+        await booking.update({
+          NgayBatDau: ngayMoi,
+          NgayKetThuc: ngayMoi,
+          GioBatDau: gioBatDauMoi,
+          GioKetThuc: gioKetThucMoi
+        }, { transaction: tx });
+      }
+
+      await tx.commit();
+      tx = null;
+
+      const updatedJob = await CaLamViec.findByPk(job.MaCaLam, {
+        include: [{ model: NguoiDung, as: 'NhanVien', attributes: ['MaNguoiDung', 'HoTenNguoiDung', 'SoDienThoai', 'AnhDaiDien'] }]
+      });
+
+      oCamManager.guiThongBaoNguoiDung(request.MaNguoiYeuCau, {
+        tieuDe: 'Yêu cầu đổi ca được đồng ý',
+        noiDung: `${req.user.HoTenNguoiDung || 'Người dùng'} đã đồng ý đổi ca #${job.MaCaLam} sang ${ngayMoi} ${gioBatDauMoi}-${gioKetThucMoi}.`,
+        data: updatedJob
+      });
+
+      return success(res, updatedJob, 'Đã đồng ý yêu cầu đổi ca và cập nhật lịch làm việc');
     } catch (err) {
       if (tx) await tx.rollback();
       next(err);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/admin/service_crud_viewmodel.dart';
 import '../../models/service_model.dart';
 
@@ -176,7 +177,7 @@ class _ServiceCrudScreenState extends State<ServiceCrudScreen> {
               itemCount: _viewModel.services.length,
               itemBuilder: (context, index) {
                 final service = _viewModel.services[index];
-                final String priceStr = '${service.donGia.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ/giờ';
+                final String priceStr = '${NumberFormat('#,###', 'vi_VN').format(service.donGia.toInt())} đ/giờ';
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),

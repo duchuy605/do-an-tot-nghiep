@@ -26,12 +26,10 @@ Vui lòng không chia sẻ mã này cho bất kỳ ai.`
 
   try {
     await transporter.sendMail(mailOptions);
-    // Bọc chuỗi log bằng dấu backtick (`)
-    console.log(`Đã gửi OTP đến ${email}`); 
+    console.log(`Đã gửi OTP đến ${email}`);
     return true;
   } catch (err) {
-    // Bọc chuỗi lỗi bằng dấu backtick (`)
-    console.error(`Lỗi gửi email đến ${email}:`, err); 
+    console.error(`Lỗi gửi email đến ${email}:`, err);
     return false;
   }
 }

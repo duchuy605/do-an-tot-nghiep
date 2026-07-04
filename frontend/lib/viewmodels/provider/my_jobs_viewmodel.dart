@@ -87,4 +87,48 @@ class MyJobsViewModel extends ChangeNotifier {
       return {'success': false, 'message': 'Lỗi kết nối.'};
     }
   }
+  Future<Map<String, dynamic>> rescheduleShift(
+    int caLamId, {
+    required String ngayLamViec,
+    required String gioBatDau,
+    required String gioKetThuc,
+    String lyDo = '',
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.rescheduleShift(
+        caLamId,
+        ngayLamViec: ngayLamViec,
+        gioBatDau: gioBatDau,
+        gioKetThuc: gioKetThuc,
+        lyDo: lyDo,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return response;
+    } catch (_) {
+      _isLoading = false;
+      notifyListeners();
+      return {'success': false, 'message': 'Lỗi kết nối.'};
+    }
+  }
+
+  /// Đồng ý hoặc từ chối yêu cầu đổi lịch từ khách hàng
+  Future<Map<String, dynamic>> respondRescheduleRequest(int requestId, bool dongY) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.respondRescheduleRequest(requestId, dongY);
+      _isLoading = false;
+      notifyListeners();
+      return response;
+    } catch (_) {
+      _isLoading = false;
+      notifyListeners();
+      return {'success': false, 'message': 'Lỗi kết nối.'};
+    }
+  }
 }

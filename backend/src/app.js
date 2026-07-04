@@ -1,7 +1,16 @@
-require('dotenv').config({ quiet: true });
+const path = require("path");
+
+const result = require("dotenv").config({
+  path: path.join(__dirname, "../.env")
+});
+
+console.log(result);
+console.log('DB_USER =', process.env.DB_USER);
+console.log('DB_HOST =', process.env.DB_HOST);
+console.log('DB_NAME =', process.env.DB_NAME);
+console.log('EMAIL_USER =', process.env.EMAIL_USER);
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const http = require('http');
 
 const sequelize = require('./config/database');

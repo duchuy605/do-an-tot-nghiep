@@ -35,11 +35,11 @@ LichSuDoiLich.init({
     allowNull: true
   },
   GioBatDauMoi: {
-    type: DataTypes.DATE,
+    type: DataTypes.TIME,
     allowNull: true
   },
   GioKetThucMoi: {
-    type: DataTypes.DATE,
+    type: DataTypes.TIME,
     allowNull: true
   },
   KetQua: {

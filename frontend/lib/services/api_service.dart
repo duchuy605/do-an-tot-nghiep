@@ -263,6 +263,40 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
+  /// Đổi ngày/giờ của một ca làm việc
+  /// PATCH /api/bookings/shifts/:id/reschedule
+  /// Dùng cho khách hàng sở hữu ca hoặc nhân viên đã nhận ca.
+  static Future<Map<String, dynamic>> rescheduleShift(
+    int caLamId, {
+    required String ngayLamViec,
+    required String gioBatDau,
+    required String gioKetThuc,
+    String lyDo = '',
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/bookings/shifts/$caLamId/reschedule'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'NgayLamViec': ngayLamViec,
+        'GioBatDau': gioBatDau,
+        'GioKetThuc': gioKetThuc,
+        'LyDo': lyDo,
+      }),
+    );
+    return jsonDecode(response.body);
+  }
+
+  /// Đồng ý hoặc từ chối yêu cầu đổi lịch
+  /// PATCH /api/bookings/reschedule-requests/:id/respond
+  static Future<Map<String, dynamic>> respondRescheduleRequest(int requestId, bool dongY) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/bookings/reschedule-requests/$requestId/respond'),
+      headers: await _headers(),
+      body: jsonEncode({'DongY': dongY}),
+    );
+    return jsonDecode(response.body);
+  }
+
   /// Hủy đơn đặt lịch kèm lý do
   /// DELETE /api/bookings/:id
   /// Bảng: DonDatLich, ViTien, LichSuViTien

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/customer/customer_home_viewmodel.dart';
 import 'booking_form.dart';
 import 'customer_wallet.dart';
@@ -256,7 +257,7 @@ class CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            '${_viewModel.walletBalance.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ',
+                                            '${NumberFormat('#,###', 'vi_VN').format(_viewModel.walletBalance.toInt())} đ',
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 18,

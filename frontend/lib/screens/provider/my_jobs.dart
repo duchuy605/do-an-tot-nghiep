@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/provider/my_jobs_viewmodel.dart';
 
 class MyJobsScreen extends StatefulWidget {
@@ -148,6 +149,182 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
   }
 
   // Nhận tất cả ca làm chờ xác nhận trong đơn định kỳ
+  TimeOfDay _parseTimeOfDay(String value) {
+    final parts = value.split(':');
+    return TimeOfDay(
+      hour: int.tryParse(parts.isNotEmpty ? parts[0] : '8') ?? 8,
+      minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m:00';
+  }
+
+  Future<void> _handleRescheduleJob(dynamic job) async {
+    DateTime selectedDate = DateTime.tryParse(job['NgayLamViec'] ?? '') ?? DateTime.now();
+    TimeOfDay startTime = _parseTimeOfDay(job['GioBatDau'] ?? '08:00:00');
+    TimeOfDay endTime = _parseTimeOfDay(job['GioKetThuc'] ?? '10:00:00');
+    final reasonController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Đổi Ca Làm Việc', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_month_outlined),
+                title: const Text('Ngày làm mới'),
+                subtitle: Text(_formatDate(selectedDate)),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 180)),
+                  );
+                  if (picked != null) setDialogState(() => selectedDate = picked);
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.schedule_rounded),
+                title: const Text('Giờ bắt đầu'),
+                subtitle: Text(startTime.format(context)),
+                onTap: () async {
+                  final picked = await showTimePicker(context: context, initialTime: startTime);
+                  if (picked != null) setDialogState(() => startTime = picked);
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.schedule_outlined),
+                title: const Text('Giờ kết thúc'),
+                subtitle: Text(endTime.format(context)),
+                onTap: () async {
+                  final picked = await showTimePicker(context: context, initialTime: endTime);
+                  if (picked != null) setDialogState(() => endTime = picked);
+                },
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: reasonController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Lý do đổi ca',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                final startMinutes = startTime.hour * 60 + startTime.minute;
+                final endMinutes = endTime.hour * 60 + endTime.minute;
+                if (endMinutes <= startMinutes) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Giờ kết thúc phải sau giờ bắt đầu'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              child: const Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final response = await _viewModel.rescheduleShift(
+      job['MaCaLam'] ?? 0,
+      ngayLamViec: _formatDate(selectedDate),
+      gioBatDau: _formatTime(startTime),
+      gioKetThuc: _formatTime(endTime),
+      lyDo: reasonController.text.trim(),
+    );
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đổi ca làm việc thành công!'), backgroundColor: Colors.green),
+      );
+      _viewModel.loadMyJobs();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? 'Không thể đổi ca làm việc.')),
+      );
+    }
+  }
+
+  Future<void> _handleRespondReschedule(int requestId, bool dongY) async {
+    final actionText = dongY ? 'đồng ý' : 'từ chối';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Xác Nhận ${dongY ? "Đồng Ý" : "Từ Chối"}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Bạn có chắc muốn $actionText yêu cầu đổi lịch này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              dongY ? 'Đồng Ý' : 'Từ Chối',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: dongY ? Colors.green : Colors.red,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final response = await _viewModel.respondRescheduleRequest(requestId, dongY);
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã $actionText yêu cầu đổi lịch thành công!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _viewModel.loadMyJobs();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? 'Không thể xử lý yêu cầu.')),
+      );
+    }
+  }
+
   Future<void> _handleAcceptAllJobs(List<dynamic> jobs) async {
     final pendingJobs = jobs.where((j) => j['TrangThaiDonHang'] == 0).toList();
     if (pendingJobs.isEmpty) return;
@@ -275,7 +452,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
       final double money = double.tryParse(job['TongTien']?.toString() ?? '0') ?? 0;
       totalEarnings += money * 0.8;
     }
-    final String earningsStr = '${totalEarnings.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    final String earningsStr = '${NumberFormat('#,###', 'vi_VN').format(totalEarnings.toInt())} đ';
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -493,7 +670,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                 final String end = job['GioKetThuc']?.substring(0, 5) ?? '';
                 final double money = double.tryParse(job['TongTien']?.toString() ?? '0') ?? 0;
                 final double providerEarnings = money * 0.8;
-                final String earningsStr = '${providerEarnings.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+                final String earningsStr = '${NumberFormat('#,###', 'vi_VN').format(providerEarnings.toInt())} đ';
 
                 // Xác định màu và text trạng thái
                 Color statusColor;
@@ -642,7 +819,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
     final int status = job['TrangThaiDonHang'] ?? 1; // 0: Cho xac nhan, 1: Da nhan, 2: Hoan thanh, 3: Huy
     final double money = double.tryParse(job['TongTien']?.toString() ?? '0') ?? 0;
     final double providerEarnings = money * 0.8;
-    final String earningsStr = '${providerEarnings.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    final String earningsStr = '${NumberFormat('#,###', 'vi_VN').format(providerEarnings.toInt())} đ';
 
     final String date = job['NgayLamViec'] ?? '';
     final String start = job['GioBatDau']?.substring(0, 5) ?? '';
@@ -822,9 +999,9 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
     final double money = double.tryParse(job['TongTien']?.toString() ?? '0') ?? 0;
     final double providerEarnings = money * 0.8;
     final double systemFee = money * 0.2;
-    final String moneyStr = '${money.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
-    final String earningsStr = '${providerEarnings.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
-    final String feeStr = '${systemFee.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    final String moneyStr = '${NumberFormat('#,###', 'vi_VN').format(money.toInt())} đ';
+    final String earningsStr = '${NumberFormat('#,###', 'vi_VN').format(providerEarnings.toInt())} đ';
+    final String feeStr = '${NumberFormat('#,###', 'vi_VN').format(systemFee.toInt())} đ';
 
     final String date = job['NgayLamViec'] ?? '';
     final String start = job['GioBatDau']?.substring(0, 5) ?? '';
@@ -866,7 +1043,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                 children: [
                   Icon(Icons.assignment_rounded, color: orangeColor, size: 24),
                   const SizedBox(width: 8),
-                  Text('Chi Tiết Ca Làm #$id', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: darkColor)),
+                  Text('Chi Tiết Ca Làm ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: darkColor)),
                 ],
               ),
               const SizedBox(height: 6),
@@ -938,6 +1115,132 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
               const SizedBox(height: 6),
               _earningsRow('Lương thực nhận', earningsStr, Colors.green, bold: true, fontSize: 17),
               const SizedBox(height: 20),
+
+              // Yêu cầu đổi lịch đang chờ xử lý
+              if (status == 0 || status == 1) ...[
+                Builder(builder: (_) {
+                  final List pendingRequests = (job['LichSuDoiLichs'] as List?) ?? [];
+                  final hasPending = pendingRequests.isNotEmpty;
+
+                  if (hasPending) {
+                    final req = pendingRequests.first;
+                    final requesterName = req['NguoiYeuCau']?['HoTenNguoiDung'] ?? 'Người dùng';
+                    final requesterRole = req['NguoiYeuCau']?['VaiTro'] ?? 0;
+                    final requestId = req['MaLichSu'] ?? 0;
+                    final ngayMoiRaw = req['NgayMoi'] ?? '';
+                    final gioBatDauMoiRaw = req['GioBatDauMoi'] ?? '';
+                    final gioKetThucMoiRaw = req['GioKetThucMoi'] ?? '';
+                    final ngayMoi = ngayMoiRaw.length >= 10 ? ngayMoiRaw.substring(0, 10) : ngayMoiRaw;
+                    final gioBatDauMoi = gioBatDauMoiRaw.length >= 16 ? gioBatDauMoiRaw.substring(11, 16) : gioBatDauMoiRaw;
+                    final gioKetThucMoi = gioKetThucMoiRaw.length >= 16 ? gioKetThucMoiRaw.substring(11, 16) : gioKetThucMoiRaw;
+                    // requesterRole == 1 => khách hàng gửi => nhân viên xử lý (hiện nút)
+                    // requesterRole == 2 => nhân viên gửi => đang chờ khách hàng phản hồi
+                    final isResponder = requesterRole == 1;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.swap_horiz_rounded, color: orangeColor, size: 20),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Yêu cầu đổi ca (đang chờ)',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFFE65100)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          _detailRow(Icons.person_outline, 'Người gửi', requesterName, Colors.blueGrey),
+                          const SizedBox(height: 6),
+                          _detailRow(Icons.calendar_today_outlined, 'Ngày mới', ngayMoi, Colors.blueGrey),
+                          const SizedBox(height: 6),
+                          _detailRow(Icons.schedule_outlined, 'Giờ mới', '$gioBatDauMoi - $gioKetThucMoi', Colors.blueGrey),
+                          if (isResponder) ...[
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      _handleRespondReschedule(requestId, false);
+                                    },
+                                    icon: const Icon(Icons.close_rounded, size: 18),
+                                    label: const Text('Từ Chối'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      side: const BorderSide(color: Colors.red),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      _handleRespondReschedule(requestId, true);
+                                    },
+                                    icon: const Icon(Icons.check_rounded, size: 18),
+                                    label: const Text('Đồng Ý'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                ' Đang chờ bên kia phản hồi...',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 13, color: Colors.grey, fontStyle: FontStyle.italic),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }
+
+                  // Không có yêu cầu đang chờ → hiện nút Đổi ca bình thường
+                  return OutlinedButton.icon(
+                    onPressed: () { Navigator.pop(context); _handleRescheduleJob(job); },
+                    icon: const Icon(Icons.event_repeat_rounded, size: 18),
+                    label: const Text('Đổi Ca Làm Việc'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: orangeColor,
+                      side: BorderSide(color: orangeColor),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 12),
+              ],
 
               // Actions
               // Trạng thái 0: Chờ xác nhận → hiện nút Nhận việc + Từ chối

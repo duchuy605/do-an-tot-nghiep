@@ -133,6 +133,7 @@ class CaLamViecModel {
   final UserModel? nhanVien;
   final bool daDanhGia;
   final bool daKhieuNai;
+  final List<LichSuDoiLichModel> lichSuDoiLichs;
 
   CaLamViecModel({
     required this.maCaLam,
@@ -153,9 +154,11 @@ class CaLamViecModel {
     this.nhanVien,
     this.daDanhGia = false,
     this.daKhieuNai = false,
+    this.lichSuDoiLichs = const [],
   });
 
   factory CaLamViecModel.fromJson(Map<String, dynamic> json) {
+    final requestList = json['LichSuDoiLichs'] as List?;
     return CaLamViecModel(
       maCaLam: json['MaCaLam'] ?? 0,
       maKhachHang: json['MaKhachHang'] ?? 0,
@@ -175,6 +178,50 @@ class CaLamViecModel {
       nhanVien: json['NhanVien'] != null ? UserModel.fromJson(json['NhanVien']) : null,
       daDanhGia: json['DanhGia'] != null,
       daKhieuNai: json['KhieuNais'] != null && (json['KhieuNais'] as List).isNotEmpty,
+      lichSuDoiLichs: requestList != null
+          ? requestList.map((e) => LichSuDoiLichModel.fromJson(e)).toList()
+          : const [],
+    );
+  }
+}
+
+class LichSuDoiLichModel {
+  final int maLichSu;
+  final int maCaLam;
+  final int maNguoiXuLy;
+  final int maNguoiYeuCau;
+  final String? ngayMoi;
+  final String? gioBatDauMoi;
+  final String? gioKetThucMoi;
+  final int ketQua;
+  final UserModel? nguoiYeuCau;
+  final UserModel? nguoiXuLy;
+
+  LichSuDoiLichModel({
+    required this.maLichSu,
+    required this.maCaLam,
+    required this.maNguoiXuLy,
+    required this.maNguoiYeuCau,
+    this.ngayMoi,
+    this.gioBatDauMoi,
+    this.gioKetThucMoi,
+    required this.ketQua,
+    this.nguoiYeuCau,
+    this.nguoiXuLy,
+  });
+
+  factory LichSuDoiLichModel.fromJson(Map<String, dynamic> json) {
+    return LichSuDoiLichModel(
+      maLichSu: json['MaLichSu'] ?? 0,
+      maCaLam: json['MaCaLam'] ?? 0,
+      maNguoiXuLy: json['MaNguoiXuLy'] ?? 0,
+      maNguoiYeuCau: json['MaNguoiYeuCau'] ?? 0,
+      ngayMoi: json['NgayMoi'],
+      gioBatDauMoi: json['GioBatDauMoi'],
+      gioKetThucMoi: json['GioKetThucMoi'],
+      ketQua: json['KetQua'] ?? 0,
+      nguoiYeuCau: json['NguoiYeuCau'] != null ? UserModel.fromJson(json['NguoiYeuCau']) : null,
+      nguoiXuLy: json['NguoiXuLy'] != null ? UserModel.fromJson(json['NguoiXuLy']) : null,
     );
   }
 }

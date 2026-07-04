@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/customer/booking_detail_viewmodel.dart';
 import 'payment_screen.dart';
 
@@ -240,6 +241,188 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     );
   }
 
+  TimeOfDay _parseTimeOfDay(String value) {
+    final parts = value.split(':');
+    return TimeOfDay(
+      hour: int.tryParse(parts.isNotEmpty ? parts[0] : '8') ?? 8,
+      minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m:00';
+  }
+
+  Future<void> _handleRespondReschedule(int requestId, bool dongY) async {
+    final actionText = dongY ? 'đồng ý' : 'từ chối';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Xác Nhận ${dongY ? "Đồng Ý" : "Từ Chối"}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Bạn có chắc muốn $actionText yêu cầu đổi lịch này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              dongY ? 'Đồng Ý' : 'Từ Chối',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: dongY ? Colors.green : Colors.red,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final response = await _viewModel.respondRescheduleRequest(requestId, dongY);
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã gửi yêu cầu đổi lịch'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _viewModel.loadBookingDetails(widget.maDatLich);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? 'Không thể xử lý yêu cầu.')),
+      );
+    }
+  }
+
+  Future<void> _showRescheduleDialog(dynamic shift) async {
+    DateTime selectedDate = DateTime.tryParse(shift.ngayLamViec) ?? DateTime.now();
+    TimeOfDay startTime = _parseTimeOfDay(shift.gioBatDau);
+    TimeOfDay endTime = _parseTimeOfDay(shift.gioKetThuc);
+    final reasonController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Đổi Ca Làm Việc', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_month_outlined),
+                title: const Text('Ngày làm mới'),
+                subtitle: Text(_formatDate(selectedDate)),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 180)),
+                  );
+                  if (picked != null) {
+                    setDialogState(() => selectedDate = picked);
+                  }
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.schedule_rounded),
+                title: const Text('Giờ bắt đầu'),
+                subtitle: Text(startTime.format(context)),
+                onTap: () async {
+                  final picked = await showTimePicker(context: context, initialTime: startTime);
+                  if (picked != null) {
+                    setDialogState(() => startTime = picked);
+                  }
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.schedule_outlined),
+                title: const Text('Giờ kết thúc'),
+                subtitle: Text(endTime.format(context)),
+                onTap: () async {
+                  final picked = await showTimePicker(context: context, initialTime: endTime);
+                  if (picked != null) {
+                    setDialogState(() => endTime = picked);
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: reasonController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Lý do đổi ca',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                final startMinutes = startTime.hour * 60 + startTime.minute;
+                final endMinutes = endTime.hour * 60 + endTime.minute;
+                if (endMinutes <= startMinutes) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Giờ kết thúc phải sau giờ bắt đầu'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              child: const Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final response = await _viewModel.rescheduleShift(
+      shift.maCaLam,
+      ngayLamViec: _formatDate(selectedDate),
+      gioBatDau: _formatTime(startTime),
+      gioKetThuc: _formatTime(endTime),
+      lyDo: reasonController.text.trim(),
+    );
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đổi ca làm việc thành công!'), backgroundColor: Colors.green),
+      );
+      _viewModel.loadBookingDetails(widget.maDatLich);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? 'Không thể đổi ca làm việc.')),
+      );
+    }
+  }
+
   String _getShiftStatusText(int status) {
     switch (status) {
       case 0:
@@ -305,7 +488,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         }
 
         final booking = _viewModel.booking!;
-        final priceStr = '${booking.giaGoi.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+        final priceStr = '${NumberFormat('#,###', 'vi_VN').format(booking.giaGoi.toInt())} đ';
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -442,7 +625,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                       itemCount: booking.caLamViecs?.length ?? 0,
                       itemBuilder: (context, index) {
                         final shift = booking.caLamViecs![index];
-                        final shiftPrice = '${shift.tongTien.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+                        final shiftPrice = '${NumberFormat('#,###', 'vi_VN').format(shift.tongTien.toInt())} đ';
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
@@ -520,6 +703,125 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                   ),
                                 ],
                                 
+                                // Yêu cầu đổi lịch đang chờ xử lý
+                                if (shift.trangThaiDonHang == 0 || shift.trangThaiDonHang == 1) ...[
+                                  const SizedBox(height: 12),
+                                  if (shift.lichSuDoiLichs.isNotEmpty) ...[
+                                    // Có yêu cầu đổi lịch đang chờ
+                                    Builder(builder: (_) {
+                                      final req = shift.lichSuDoiLichs.first;
+                                      final requesterName = req.nguoiYeuCau?.hoTenNguoiDung ?? 'Người dùng';
+                                      final requesterRole = req.nguoiYeuCau?.vaiTro ?? 0;
+                                      final ngayMoiRaw = req.ngayMoi ?? '';
+                                      final gioBatDauMoiRaw = req.gioBatDauMoi ?? '';
+                                      final gioKetThucMoiRaw = req.gioKetThucMoi ?? '';
+                                      final ngayMoi = ngayMoiRaw.length >= 10 ? ngayMoiRaw.substring(0, 10) : ngayMoiRaw;
+                                      final gioBatDauMoi = gioBatDauMoiRaw.length >= 16 ? gioBatDauMoiRaw.substring(11, 16) : gioBatDauMoiRaw;
+                                      final gioKetThucMoi = gioKetThucMoiRaw.length >= 16 ? gioKetThucMoiRaw.substring(11, 16) : gioKetThucMoiRaw;
+                                      // requesterRole == 2 => nhân viên gửi yêu cầu => khách hàng xử lý (hiện nút)
+                                      // requesterRole == 1 => khách hàng tự gửi => đang chờ nhân viên phản hồi
+                                      final isResponder = requesterRole == 2;
+
+                                      return Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: Colors.orange.shade200),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Icon(Icons.swap_horiz_rounded, color: orangeColor, size: 18),
+                                                const SizedBox(width: 6),
+                                                const Expanded(
+                                                  child: Text(
+                                                    'Yêu cầu đổi ca (đang chờ)',
+                                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFE65100)),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text('👤 Người gửi: $requesterName', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                                            const SizedBox(height: 4),
+                                            Text('📅 Ngày mới: $ngayMoi', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                                            const SizedBox(height: 4),
+                                            Text('⏰ Giờ mới: $gioBatDauMoi - $gioKetThucMoi', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                                            if (isResponder) ...[
+                                              const SizedBox(height: 12),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: OutlinedButton.icon(
+                                                      onPressed: () => _handleRespondReschedule(req.maLichSu, false),
+                                                      icon: const Icon(Icons.close_rounded, size: 14),
+                                                      label: const Text('Từ Chối'),
+                                                      style: OutlinedButton.styleFrom(
+                                                        foregroundColor: Colors.red,
+                                                        side: const BorderSide(color: Colors.red),
+                                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: ElevatedButton.icon(
+                                                      onPressed: () => _handleRespondReschedule(req.maLichSu, true),
+                                                      icon: const Icon(Icons.check_rounded, size: 14),
+                                                      label: const Text('Đồng Ý'),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.green,
+                                                        foregroundColor: Colors.white,
+                                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ] else ...[
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade100,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: const Text(
+                                                  ' Đang chờ bên kia phản hồi...',
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                  ] else ...[
+                                    // Không có yêu cầu đang chờ → hiện nút Đổi ca bình thường
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: OutlinedButton.icon(
+                                        icon: const Icon(Icons.event_repeat_rounded, size: 14),
+                                        label: const Text('Đổi ca'),
+                                        onPressed: () => _showRescheduleDialog(shift),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: orangeColor,
+                                          side: const BorderSide(color: orangeColor),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+
                                 // Feedback Actions
                                 if (shift.trangThaiDonHang == 2) ...[
                                   const SizedBox(height: 12),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/customer/payment_viewmodel.dart';
 import 'customer_wallet.dart';
 
@@ -141,7 +142,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   String _formatCurrency(double amount) {
-    return '${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ';
+    return '${NumberFormat('#,###', 'vi_VN').format(amount.toInt())} đ';
   }
 
   @override

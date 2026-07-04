@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
-const { NguoiDung, HoSoNhanVien, CaLamViec, ViTien, LichSuViTien, DonDatLich } = require('../models');
+const { NguoiDung, HoSoNhanVien, CaLamViec, ViTien, LichSuViTien, DonDatLich, LichSuDoiLich } = require('../models');
 const { getDurationInHours } = require('../utils/tinh_gia');
 const { success, error } = require('../utils/phan_hoi');
 const oCamManager = require('../sockets/o_cam_manager');
@@ -78,7 +78,17 @@ class ProviderController {
         },
         include: [
           { model: NguoiDung, as: 'KhachHang', attributes: ['HoTenNguoiDung', 'SoDienThoai'] },
-          { model: DonDatLich, as: 'DonDatLich', attributes: ['MaDatLich', 'LoaiDatLich', 'SoBuoi', 'GiaGoi','TrangThai'] }
+          { model: DonDatLich, as: 'DonDatLich', attributes: ['MaDatLich', 'LoaiDatLich', 'SoBuoi', 'GiaGoi','TrangThai'] },
+          {
+            model: LichSuDoiLich,
+            as: 'LichSuDoiLichs',
+            where: { KetQua: 0 },
+            required: false,
+            include: [
+              { model: NguoiDung, as: 'NguoiYeuCau', attributes: ['MaNguoiDung', 'HoTenNguoiDung', 'VaiTro'] },
+              { model: NguoiDung, as: 'NguoiXuLy', attributes: ['MaNguoiDung', 'HoTenNguoiDung', 'VaiTro'] }
+            ]
+          }
         ],
         order: [['NgayLamViec', 'ASC'], ['GioBatDau', 'ASC']]
       });

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../viewmodels/customer/customer_wallet_viewmodel.dart';
 
 class CustomerWalletScreen extends StatefulWidget {
@@ -176,10 +177,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
   }
 
   String _formatAmount(double amt, int type) {
-    final String formatted = amt.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
+    final String formatted = NumberFormat('#,###', 'vi_VN').format(amt.toInt());
     if (type == 1 || type == 3 || type == 4) {
       return '+$formatted đ';
     }
@@ -253,7 +251,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                '${_viewModel.balance.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} đ',
+                                '${NumberFormat('#,###', 'vi_VN').format(_viewModel.balance.toInt())} đ',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 30,
