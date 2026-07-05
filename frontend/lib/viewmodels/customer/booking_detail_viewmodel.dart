@@ -89,7 +89,6 @@ class BookingDetailViewModel extends ChangeNotifier {
     int caLamId, {
     required String ngayLamViec,
     required String gioBatDau,
-    required String gioKetThuc,
     String lyDo = '',
   }) async {
     _isLoading = true;
@@ -100,7 +99,6 @@ class BookingDetailViewModel extends ChangeNotifier {
         caLamId,
         ngayLamViec: ngayLamViec,
         gioBatDau: gioBatDau,
-        gioKetThuc: gioKetThuc,
         lyDo: lyDo,
       );
       _isLoading = false;
@@ -120,6 +118,23 @@ class BookingDetailViewModel extends ChangeNotifier {
 
     try {
       final response = await ApiService.respondRescheduleRequest(requestId, dongY);
+      _isLoading = false;
+      notifyListeners();
+      return response;
+    } catch (_) {
+      _isLoading = false;
+      notifyListeners();
+      return {'success': false, 'message': 'Lỗi kết nối máy chủ.'};
+    }
+  }
+
+  /// Đổi nhân viên (chỉ khi hệ thống tự gán)
+  Future<Map<String, dynamic>> changeProvider(int caLamId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.changeProvider(caLamId);
       _isLoading = false;
       notifyListeners();
       return response;

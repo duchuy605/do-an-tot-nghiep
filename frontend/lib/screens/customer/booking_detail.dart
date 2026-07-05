@@ -308,11 +308,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       );
     }
   }
-
   Future<void> _showRescheduleDialog(dynamic shift) async {
     DateTime selectedDate = DateTime.tryParse(shift.ngayLamViec) ?? DateTime.now();
     TimeOfDay startTime = _parseTimeOfDay(shift.gioBatDau);
-    TimeOfDay endTime = _parseTimeOfDay(shift.gioKetThuc);
     final reasonController = TextEditingController();
 
     final confirmed = await showDialog<bool>(
@@ -353,19 +351,24 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   }
                 },
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.schedule_outlined),
-                title: const Text('Giờ kết thúc'),
-                subtitle: Text(endTime.format(context)),
-                onTap: () async {
-                  final picked = await showTimePicker(context: context, initialTime: endTime);
-                  if (picked != null) {
-                    setDialogState(() => endTime = picked);
-                  }
-                },
-              ),
               const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Giờ kết thúc sẽ được tự động tính dựa trên tổng số giờ của các dịch vụ trong ca.',
+                        style: TextStyle(fontSize: 12, color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
                 maxLines: 2,
@@ -383,14 +386,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             ),
             TextButton(
               onPressed: () {
-                final startMinutes = startTime.hour * 60 + startTime.minute;
-                final endMinutes = endTime.hour * 60 + endTime.minute;
-                if (endMinutes <= startMinutes) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Giờ kết thúc phải sau giờ bắt đầu'), backgroundColor: Colors.red),
-                  );
-                  return;
-                }
                 Navigator.pop(context, true);
               },
               child: const Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
@@ -406,7 +401,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       shift.maCaLam,
       ngayLamViec: _formatDate(selectedDate),
       gioBatDau: _formatTime(startTime),
-      gioKetThuc: _formatTime(endTime),
       lyDo: reasonController.text.trim(),
     );
     if (!mounted) return;
@@ -419,6 +413,42 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(response['message'] ?? 'Không thể đổi ca làm việc.')),
+      );
+    }
+  }
+
+  Future<void> _handleChangeProvider(int caLamId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Đổi Nhân Viên', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Bạn có chắc chắn muốn đổi nhân viên cho ca làm việc này? Nhân viên hiện tại sẽ bị gỡ và ca sẽ được chuyển về bảng tin để nhân viên khác nhận.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Đồng Ý', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final response = await _viewModel.changeProvider(caLamId);
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đổi nhân viên thành công!'), backgroundColor: Colors.green),
+      );
+      _viewModel.loadBookingDetails(widget.maDatLich);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? 'Không thể đổi nhân viên.')),
       );
     }
   }
@@ -807,16 +837,35 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                     // Không có yêu cầu đang chờ → hiện nút Đổi ca bình thường
                                     Align(
                                       alignment: Alignment.centerRight,
-                                      child: OutlinedButton.icon(
-                                        icon: const Icon(Icons.event_repeat_rounded, size: 14),
-                                        label: const Text('Đổi ca'),
-                                        onPressed: () => _showRescheduleDialog(shift),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: orangeColor,
-                                          side: const BorderSide(color: orangeColor),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (shift.nhanVien != null) ...[
+                                            OutlinedButton.icon(
+                                              icon: const Icon(Icons.person_remove_rounded, size: 14),
+                                              label: const Text('Đổi nhân viên'),
+                                              onPressed: () => _handleChangeProvider(shift.maCaLam),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: Colors.red,
+                                                side: const BorderSide(color: Colors.red),
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                          ],
+                                          OutlinedButton.icon(
+                                            icon: const Icon(Icons.event_repeat_rounded, size: 14),
+                                            label: const Text('Đổi ca'),
+                                            onPressed: () => _showRescheduleDialog(shift),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: orangeColor,
+                                              side: const BorderSide(color: orangeColor),
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
