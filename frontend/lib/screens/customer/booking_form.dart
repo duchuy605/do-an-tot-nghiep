@@ -26,6 +26,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Future<void> _initData() async {
+    _viewModel.setMainServiceId(widget.service.maDichVu);
     final addr = await _viewModel.loadDefaultAddress();
     setState(() {
       _addressController.text = addr;
@@ -413,35 +414,7 @@ Future<void> _selectTime(BuildContext context) async {
                                 );
                               }).toList(),
                             ),
-                            const SizedBox(height: 16),
-                            const Text('Chọn số buổi làm việc cho gói', style: TextStyle(fontWeight: FontWeight.bold, color: darkColor)),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 8,
-                              children: _viewModel.filteredPackages.map((pkg) {
-                                final isSelected = _viewModel.selectedPackage?['MaLoaiGoi'] == pkg['MaLoaiGoi'];
-                                final int sessions = pkg['SoBuoi'];
-                                final double discount = double.tryParse(pkg['PhanTramGiamGia'].toString()) ?? 0.0;
-                                return ChoiceChip(
-                                  label: Text('$sessions Buổi ${discount > 0 ? "(-${discount.toStringAsFixed(0)}%)" : ""}'),
-                                  selected: isSelected,
-                                  selectedColor: orangeColor.withOpacity(0.15),
-                                  checkmarkColor: orangeColor,
-                                  backgroundColor: bgColor,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  labelStyle: TextStyle(
-                                    color: isSelected ? orangeColor : darkColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  onSelected: (selected) {
-                                    if (selected) _viewModel.setSelectedPackage(pkg);
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                            const SizedBox(height: 12),
-                            const Divider(),
+
                           ],
 
                           // Date picker or weekday pickers
@@ -757,32 +730,52 @@ Future<void> _selectTime(BuildContext context) async {
                           const SizedBox(height: 32),
 
                           // Submit Button
-                          ElevatedButton(
-                            onPressed: _viewModel.isLoading ? null : _submitBooking,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: orangeColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 1,
-                            ),
-                            child: _viewModel.isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                  )
-                                : const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.payment_rounded, size: 20),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'TIẾN HÀNH THANH TOÁN',
-                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.1),
-                                      ),
-                                    ],
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Tạm tính:', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                    const SizedBox(height: 4),
+                                    _viewModel.isCalculatingPrice 
+                                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: orangeColor))
+                                      : Text(_formatCurrency(_viewModel.temporaryTotalPrice), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: orangeColor)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: ElevatedButton(
+                                  onPressed: _viewModel.isLoading ? null : _submitBooking,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: orangeColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    elevation: 1,
                                   ),
+                                  child: _viewModel.isLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.payment_rounded, size: 20),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'THANH TOÁN',
+                                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 20),
                         ],

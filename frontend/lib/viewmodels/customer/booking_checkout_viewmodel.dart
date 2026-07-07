@@ -15,6 +15,7 @@ class BookingCheckoutViewModel extends ChangeNotifier {
   double _baseRatePerHour = 0;
   double _packageDiscountPercent = 0;
   double _providerSurchargePercent = 0;
+  List<dynamic> _detailedServices = [];
 
   // Promo
   double _discountAmount = 0;
@@ -31,6 +32,7 @@ class BookingCheckoutViewModel extends ChangeNotifier {
   double get baseRatePerHour => _baseRatePerHour;
   double get packageDiscountPercent => _packageDiscountPercent;
   double get providerSurchargePercent => _providerSurchargePercent;
+  List<dynamic> get detailedServices => _detailedServices;
   double get discountAmount => _discountAmount;
   String? get promoSuccessMessage => _promoSuccessMessage;
   String? get promoErrorMessage => _promoErrorMessage;
@@ -63,6 +65,7 @@ class BookingCheckoutViewModel extends ChangeNotifier {
         _baseRatePerHour = (data['baseRatePerHour'] as num?)?.toDouble() ?? 0;
         _packageDiscountPercent = (data['packageDiscountPercent'] as num?)?.toDouble() ?? 0;
         _providerSurchargePercent = (data['providerSurchargePercent'] as num?)?.toDouble() ?? 0;
+        _detailedServices = data['detailedServices'] ?? [];
       } else {
         _errorMessage = previewResponse['message'] ?? 'Không thể tính giá.';
       }

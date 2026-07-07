@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../services/api_service.dart';
 import '../../../models/service_model.dart';
@@ -36,6 +37,11 @@ class BookingFormViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _filteredPackages = [];
   int? _selectedMonth;
   Map<String, dynamic>? _selectedPackage;
+  
+  int? _mainServiceId;
+  double _temporaryTotalPrice = 0.0;
+  bool _isCalculatingPrice = false;
+  Timer? _debounceTimer;
 
   // Getters
   int get bookingType => _bookingType;
@@ -55,16 +61,49 @@ class BookingFormViewModel extends ChangeNotifier {
   Map<int, int> get selectedAdditionalServices => _selectedAdditionalServices;
   List<Map<String, dynamic>> get providers => _providers;
   Map<String, dynamic>? get selectedProvider => _selectedProvider;
+  double get temporaryTotalPrice => _temporaryTotalPrice;
+  bool get isCalculatingPrice => _isCalculatingPrice;
+
+  void setMainServiceId(int id) {
+    _mainServiceId = id;
+    _triggerPreviewPrice();
+  }
+
+  void _triggerPreviewPrice() {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (_mainServiceId == null) return;
+      _isCalculatingPrice = true;
+      notifyListeners();
+      
+      final bookingData = buildBookingData("dummy", "dummy", _mainServiceId!);
+      try {
+        final response = await ApiService.previewBookingPrice(bookingData);
+        if (response['success'] == true) {
+          _temporaryTotalPrice = double.parse(response['data']['totalPrice'].toString());
+        } else {
+          _temporaryTotalPrice = 0;
+        }
+      } catch (_) {
+        _temporaryTotalPrice = 0;
+      }
+      
+      _isCalculatingPrice = false;
+      notifyListeners();
+    });
+  }
 
   void setBookingType(int type) {
     _bookingType = type;
     updateEndDate();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void setStartDate(DateTime date) {
     _startDate = date;
     updateEndDate();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
@@ -75,29 +114,34 @@ class BookingFormViewModel extends ChangeNotifier {
 
   void setStartTime(TimeOfDay time) {
     _startTime = time;
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void setDurationHours(int h) {
     _durationHours = h;
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void toggleWeekday(String day, bool value) {
     _weekdays[day] = value;
     updateEndDate();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void setSelectedMonth(int month) {
     _selectedMonth = month;
     filterPackages();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void setSelectedPackage(Map<String, dynamic> pkg) {
     _selectedPackage = pkg;
     updateEndDate();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
@@ -112,6 +156,7 @@ class BookingFormViewModel extends ChangeNotifier {
     } else {
       _selectedAdditionalServices.remove(serviceId);
     }
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
@@ -121,11 +166,13 @@ class BookingFormViewModel extends ChangeNotifier {
     } else {
       _selectedAdditionalServices[serviceId] = quantity;
     }
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void setSelectedProvider(Map<String, dynamic>? provider) {
     _selectedProvider = provider;
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
@@ -206,45 +253,23 @@ class BookingFormViewModel extends ChangeNotifier {
   }
 
   void updateEndDate() {
-    if (_bookingType == 1 || _selectedPackage == null) {
+    if (_bookingType == 1 || (_selectedPackage == null && _selectedMonth == null)) {
       _endDate = _startDate;
       return;
     }
 
-    final int targetSessions = _selectedPackage!['SoBuoi'] ?? 1;
-    final selectedDays = _weekdays.entries
-        .where((e) => e.value)
-        .map((e) => e.key)
-        .toList();
-
-    if (selectedDays.isEmpty) {
-      final int months = _selectedPackage!['SoThang'] ?? 1;
-      final int totalDays = months * 30;
-      final int interval = (totalDays / targetSessions).round().clamp(1, 30);
-      _endDate = _startDate.add(Duration(days: (targetSessions - 1) * interval));
-      return;
+    int months = 1;
+    if (_selectedPackage != null) {
+      months = _selectedPackage!['SoThang'] ?? 1;
+    } else if (_selectedMonth != null) {
+      months = _selectedMonth!;
     }
-
-    DateTime currentDate = _startDate;
-    int sessionCount = 0;
-
-    String getDayVN(int weekday) {
-      if (weekday == 7) return 'CN';
-      return (weekday + 1).toString();
-    }
-
-    while (sessionCount < targetSessions) {
-      final dayVN = getDayVN(currentDate.weekday);
-      if (selectedDays.contains(dayVN)) {
-        sessionCount++;
-        if (sessionCount == targetSessions) {
-          break;
-        }
-      }
-      currentDate = currentDate.add(const Duration(days: 1));
-    }
-
-    _endDate = currentDate;
+    
+    _endDate = DateTime(
+      _startDate.year,
+      _startDate.month + months,
+      _startDate.day,
+    );
   }
 
   String _formatTimeOfDay(TimeOfDay time) {
