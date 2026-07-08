@@ -270,7 +270,6 @@ class ApiService {
     int caLamId, {
     required String ngayLamViec,
     required String gioBatDau,
-    required String gioKetThuc,
     String lyDo = '',
   }) async {
     final response = await http.patch(
@@ -279,7 +278,6 @@ class ApiService {
       body: jsonEncode({
         'NgayLamViec': ngayLamViec,
         'GioBatDau': gioBatDau,
-        'GioKetThuc': gioKetThuc,
         'LyDo': lyDo,
       }),
     );
@@ -293,6 +291,17 @@ class ApiService {
       Uri.parse('$baseUrl/bookings/reschedule-requests/$requestId/respond'),
       headers: await _headers(),
       body: jsonEncode({'DongY': dongY}),
+    );
+    return jsonDecode(response.body);
+  }
+
+  /// Đổi nhân viên (chỉ khi hệ thống tự gán)
+  /// PATCH /api/bookings/shifts/:id/change-provider
+  static Future<Map<String, dynamic>> changeProvider(int caLamId) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/bookings/shifts/$caLamId/change-provider'),
+      headers: await _headers(),
+      body: jsonEncode({}),
     );
     return jsonDecode(response.body);
   }

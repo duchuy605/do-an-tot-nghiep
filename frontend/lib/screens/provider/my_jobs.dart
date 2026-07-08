@@ -210,17 +210,24 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                   if (picked != null) setDialogState(() => startTime = picked);
                 },
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.schedule_outlined),
-                title: const Text('Giờ kết thúc'),
-                subtitle: Text(endTime.format(context)),
-                onTap: () async {
-                  final picked = await showTimePicker(context: context, initialTime: endTime);
-                  if (picked != null) setDialogState(() => endTime = picked);
-                },
-              ),
               const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Giờ kết thúc sẽ được tự động tính dựa trên tổng số giờ của các dịch vụ trong ca.',
+                        style: TextStyle(fontSize: 12, color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
                 maxLines: 2,
@@ -238,14 +245,6 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
             ),
             TextButton(
               onPressed: () {
-                final startMinutes = startTime.hour * 60 + startTime.minute;
-                final endMinutes = endTime.hour * 60 + endTime.minute;
-                if (endMinutes <= startMinutes) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Giờ kết thúc phải sau giờ bắt đầu'), backgroundColor: Colors.red),
-                  );
-                  return;
-                }
                 Navigator.pop(context, true);
               },
               child: const Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
@@ -261,7 +260,6 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
       job['MaCaLam'] ?? 0,
       ngayLamViec: _formatDate(selectedDate),
       gioBatDau: _formatTime(startTime),
-      gioKetThuc: _formatTime(endTime),
       lyDo: reasonController.text.trim(),
     );
     if (!mounted) return;

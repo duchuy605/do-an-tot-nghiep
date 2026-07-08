@@ -40,6 +40,7 @@ class CustomerController {
     this.getPackages = this.getPackages.bind(this);
     this.rescheduleShift = this.rescheduleShift.bind(this);
     this.respondRescheduleShift = this.respondRescheduleShift.bind(this);
+    this.changeProvider = this.changeProvider.bind(this);
   }
 
   // Hàm tiện ích hỗ trợ tính giá chi tiết buổi làm
@@ -641,7 +642,8 @@ class CustomerController {
       const userId = req.user.MaNguoiDung;
       const userRole = req.user.VaiTro;
       const caLamId = req.params.id;
-      const { NgayLamViec, GioBatDau, GioKetThuc, LyDo } = req.body;
+      const { NgayLamViec, GioBatDau, LyDo } = req.body;
+      let { GioKetThuc } = req.body;
 
       const job = await CaLamViec.findByPk(caLamId, {
         include: [{ model: DonDatLich, as: 'DonDatLich' }]
@@ -663,6 +665,29 @@ class CustomerController {
       const targetUserId = isCustomerOwner ? job.MaNhanVien : job.MaKhachHang;
       if (!targetUserId) {
         return error(res, 'Ca làm việc chưa có nhân viên nên chưa thể gửi yêu cầu đổi lịch', 400);
+      }
+
+      // Nếu không truyền GioKetThuc, tự tính từ tổng giờ dịch vụ trong đơn
+      if (!GioKetThuc) {
+        const datDichVus = await DatDichVu.findAll({
+          where: { MaDatLich: job.MaDatLich },
+          include: [{ model: DichVu, as: 'DichVu' }]
+        });
+
+        let tongGio = 0;
+        for (const ddv of datDichVus) {
+          if (ddv.DichVu) {
+            tongGio += (ddv.DichVu.SoGioQuyDinh || 1) * (ddv.SoLuong || 1);
+          }
+        }
+        if (tongGio <= 0) tongGio = getDurationInHours(job.GioBatDau, job.GioKetThuc);
+
+        // Tính GioKetThuc = GioBatDau + tongGio
+        const [h, m] = GioBatDau.split(':').map(Number);
+        const totalMinutes = h * 60 + (m || 0) + tongGio * 60;
+        const endH = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+        const endM = (totalMinutes % 60).toString().padStart(2, '0');
+        GioKetThuc = `${endH}:${endM}:00`;
       }
 
       const duration = getDurationInHours(GioBatDau, GioKetThuc);
@@ -850,6 +875,69 @@ class CustomerController {
       return success(res, updatedJob, 'Đã đồng ý yêu cầu đổi ca và cập nhật lịch làm việc');
     } catch (err) {
       if (tx) await tx.rollback();
+      next(err);
+    }
+  }
+
+  // ============================================================
+  // PATCH /bookings/shifts/:id/change-provider
+  // Khách hàng yêu cầu đổi nhân viên (chỉ khi hệ thống tự gán)
+  // Gỡ nhân viên hiện tại → ca quay về bảng tin cho NV khác nhận
+  // ============================================================
+  async changeProvider(req, res, next) {
+    try {
+      const userId = req.user.MaNguoiDung;
+      const caLamId = req.params.id;
+
+      const job = await CaLamViec.findByPk(caLamId, {
+        include: [
+          { model: DonDatLich, as: 'DonDatLich' },
+          { model: NguoiDung, as: 'NhanVien', attributes: ['MaNguoiDung', 'HoTenNguoiDung'] }
+        ]
+      });
+      if (!job) {
+        return error(res, 'Ca làm việc không tồn tại', 404);
+      }
+
+      if (job.MaKhachHang !== userId) {
+        return error(res, 'Bạn không có quyền đổi nhân viên cho ca này', 403);
+      }
+
+      if (![0, 1].includes(job.TrangThaiDonHang)) {
+        return error(res, 'Chỉ có thể đổi nhân viên cho ca chưa hoàn thành', 400);
+      }
+
+      if (!job.MaNhanVien) {
+        return error(res, 'Ca làm việc chưa có nhân viên', 400);
+      }
+
+
+      const oldProviderName = job.NhanVien ? job.NhanVien.HoTenNguoiDung : 'Nhân viên';
+      const oldProviderId = job.MaNhanVien;
+
+      // Gỡ nhân viên, chuyển ca về trạng thái chờ nhận (1)
+      await job.update({
+        MaNhanVien: null,
+        TrangThaiDonHang: 1,
+        NgayCapNhat: new Date()
+      });
+
+      // Gửi thông báo cho nhân viên cũ
+      oCamManager.guiThongBaoNguoiDung(oldProviderId, {
+        tieuDe: 'Bạn đã bị gỡ khỏi ca làm việc',
+        noiDung: `Khách hàng ${req.user.HoTenNguoiDung || 'Khách hàng'} đã yêu cầu đổi nhân viên cho ca #${job.MaCaLam}. Ca này đã được chuyển về bảng tin.`,
+        data: job
+      });
+
+      // Gửi thông báo cho tất cả nhân viên về ca mới
+      oCamManager.guiThongBaoAdminVaNhanVien({
+        tieuDe: 'Có ca làm việc cần nhận!',
+        noiDung: `Ca #${job.MaCaLam} ngày ${job.NgayLamViec} (${job.GioBatDau}-${job.GioKetThuc}) đang cần nhân viên nhận.`,
+        data: job
+      });
+
+      return success(res, job, `Đã gỡ nhân viên ${oldProviderName} khỏi ca. Ca đang chờ nhân viên mới nhận.`);
+    } catch (err) {
       next(err);
     }
   }

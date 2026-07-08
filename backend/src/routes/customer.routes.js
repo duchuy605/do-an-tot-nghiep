@@ -17,6 +17,7 @@ router.post('/bookings', authenticate, authorize('CUSTOMER'), customerController
 router.get('/bookings', authenticate, authorize('CUSTOMER'), customerController.getBookings);
 router.patch('/bookings/shifts/:id/reschedule', authenticate, authorize('CUSTOMER', 'PROVIDER'), customerController.rescheduleShift);
 router.patch('/bookings/reschedule-requests/:id/respond', authenticate, authorize('CUSTOMER', 'PROVIDER'), customerController.respondRescheduleShift);
+router.patch('/bookings/shifts/:id/change-provider', authenticate, authorize('CUSTOMER'), customerController.changeProvider);
 router.get('/bookings/:id', authenticate, authorize('CUSTOMER', 'PROVIDER', 'ADMIN'), customerController.getBookingDetail);
 router.delete('/bookings/:id', authenticate, authorize('CUSTOMER'), customerController.cancelBooking);
 

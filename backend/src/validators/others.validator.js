@@ -15,7 +15,7 @@ const createComplaintSchema = Joi.object({
 const rescheduleShiftSchema = Joi.object({
   NgayLamViec: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
   GioBatDau: Joi.string().pattern(/^\d{2}:\d{2}(:\d{2})?$/).required(),
-  GioKetThuc: Joi.string().pattern(/^\d{2}:\d{2}(:\d{2})?$/).required(),
+  GioKetThuc: Joi.string().pattern(/^\d{2}:\d{2}(:\d{2})?$/).optional().allow(null, ''),
   LyDo: Joi.string().max(255).allow(null, '')
 });
 

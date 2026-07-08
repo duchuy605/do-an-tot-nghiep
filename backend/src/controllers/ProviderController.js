@@ -153,6 +153,30 @@ class ProviderController {
         return error(res, 'Trạng thái công việc không hợp lệ để nhận', 400);
       }
 
+      console.log('--- ACCEPT JOB DEBUG ---');
+      console.log('ProviderID:', providerId);
+      console.log('NgayLamViec:', job.NgayLamViec, typeof job.NgayLamViec);
+      console.log('GioBatDau:', job.GioBatDau, typeof job.GioBatDau);
+      console.log('GioKetThuc:', job.GioKetThuc, typeof job.GioKetThuc);
+      
+      // Kiểm tra xem nhân viên đã có ca làm việc nào trùng giờ trong ngày này chưa
+      const conflictingJob = await CaLamViec.findOne({
+        where: {
+          MaCaLam: { [Op.ne]: job.MaCaLam },
+          MaNhanVien: providerId,
+          NgayLamViec: job.NgayLamViec,
+          TrangThaiDonHang: { [Op.in]: [0, 1, 2] },
+          GioBatDau: { [Op.lt]: job.GioKetThuc },
+          GioKetThuc: { [Op.gt]: job.GioBatDau }
+        }
+      });
+      console.log('ConflictingJob found:', conflictingJob ? conflictingJob.MaCaLam : 'NONE');
+      console.log('------------------------');
+      
+      if (conflictingJob) {
+        return error(res, `Bạn đã có lịch làm việc vào ngày ${job.NgayLamViec} từ ${conflictingJob.GioBatDau} đến ${conflictingJob.GioKetThuc}. Không thể nhận thêm ca bị trùng giờ.`, 400);
+      }
+
       tx = await sequelize.transaction();
 
       // Gán nhân viên vào ca làm, giữ TrangThaiDonHang = 1 (đã nhận / đang chờ thực hiện)

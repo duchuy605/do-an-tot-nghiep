@@ -91,7 +91,6 @@ class MyJobsViewModel extends ChangeNotifier {
     int caLamId, {
     required String ngayLamViec,
     required String gioBatDau,
-    required String gioKetThuc,
     String lyDo = '',
   }) async {
     _isLoading = true;
@@ -102,7 +101,6 @@ class MyJobsViewModel extends ChangeNotifier {
         caLamId,
         ngayLamViec: ngayLamViec,
         gioBatDau: gioBatDau,
-        gioKetThuc: gioKetThuc,
         lyDo: lyDo,
       );
       _isLoading = false;
