@@ -436,9 +436,34 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                     _buildCard([
                       const Text('Chi Tiết Thanh Toán', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: darkColor)),
                       const SizedBox(height: 16),
-                      _buildPriceRow('Đơn giá/giờ', _viewModel.baseRatePerHour),
-                      const SizedBox(height: 8),
-                      _buildPriceRow('Thời lượng', widget.durationHours.toDouble(), isSuffix: ' giờ/buổi'),
+                      ..._viewModel.detailedServices.map((service) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${service['serviceName']} (${service['hours']} tiếng)', style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                              Text(_formatCurrency((service['price'] as num).toDouble()), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: darkColor)),
+                            ],
+                          ),
+                        );
+                      }),
+                      Builder(builder: (ctx) {
+                        double totalCaPrice = 0;
+                        double totalCaHours = 0;
+                        for (var s in _viewModel.detailedServices) {
+                          totalCaPrice += (s['price'] as num).toDouble();
+                          totalCaHours += (s['hours'] as num).toDouble();
+                        }
+                        if (totalCaPrice == 0) return const SizedBox.shrink();
+                        return Column(
+                          children: [
+                            const Divider(),
+                            const SizedBox(height: 4),
+                            _buildPriceRow('Tổng / 1 ca (${totalCaHours.toStringAsFixed(0)} tiếng)', totalCaPrice),
+                          ],
+                        );
+                      }),
                       const SizedBox(height: 8),
                       _buildPriceRow('Số buổi', _viewModel.totalSessions.toDouble(), isSuffix: ' buổi'),
                       if (_viewModel.packageDiscountPercent > 0) ...[
