@@ -273,7 +273,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+            child: const Text('Đóng', style: TextStyle(color: Color(0xFFFF8225))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -318,7 +318,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Đổi Ca Làm Việc', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('Đổi lịch làm việc', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -373,7 +373,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 controller: reasonController,
                 maxLines: 2,
                 decoration: const InputDecoration(
-                  labelText: 'Lý do đổi ca',
+                  labelText: 'Lý do đổi lịch',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -382,13 +382,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+              child: const Text('Hủy đổi lịch', style: TextStyle(color: Color(0xFFFF8225))),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context, true);
               },
-              child: const Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
+              child: const Text('Đổi lịch', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
             ),
           ],
         ),
@@ -768,7 +768,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                                 const SizedBox(width: 6),
                                                 const Expanded(
                                                   child: Text(
-                                                    'Yêu cầu đổi ca (đang chờ)',
+                                                    'Yêu cầu đổi lịch (đang chờ)',
                                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFE65100)),
                                                   ),
                                                 ),
@@ -856,7 +856,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                           ],
                                           OutlinedButton.icon(
                                             icon: const Icon(Icons.event_repeat_rounded, size: 14),
-                                            label: const Text('Đổi ca'),
+                                            label: const Text('Đổi lịch'),
                                             onPressed: () => _showRescheduleDialog(shift),
                                             style: OutlinedButton.styleFrom(
                                               foregroundColor: orangeColor,

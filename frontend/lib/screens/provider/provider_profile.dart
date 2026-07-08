@@ -196,7 +196,7 @@ class ProviderProfileScreenState extends State<ProviderProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+            child: const Text('Hủy', style: TextStyle(color: Color(0xFFFF8225))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),

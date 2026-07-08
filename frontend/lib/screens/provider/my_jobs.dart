@@ -241,7 +241,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+              child: const Text('Đóng', style: TextStyle(color: Color(0xFFFF8225))),
             ),
             TextButton(
               onPressed: () {
