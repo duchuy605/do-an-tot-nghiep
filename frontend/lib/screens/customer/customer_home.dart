@@ -365,8 +365,8 @@ class CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                             service.tenDichVu,
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10,
                                               color: darkColor,
                                             ),
                                             maxLines: 2,

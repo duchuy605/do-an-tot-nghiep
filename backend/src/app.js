@@ -61,7 +61,7 @@ async function startServer() {
       console.log(` Server đang chạy tại địa chỉ: http://localhost:${PORT}`);
     });
   } catch (error) {
-    console.error('SKhông thể kết nối cơ sở dữ liệu MySQL:', error);
+    console.error('Không thể kết nối cơ sở dữ liệu MySQL:', error);
     process.exit(1);
   }
 }
