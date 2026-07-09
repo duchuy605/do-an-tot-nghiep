@@ -857,16 +857,41 @@ class CustomerController {
 
       if (!DongY) {
         await request.update({ KetQua: 2, NgayDoi: new Date() }, { transaction: tx });
-        await tx.commit();
-        tx = null;
+        
+        if (req.user.VaiTro === 2) {
+          // Nhân viên từ chối -> chuyển ca làm về bảng việc trống và cập nhật ngày giờ mới
+          await job.update({
+            MaNhanVien: null,
+            TrangThaiDonHang: 1, // 1: Chờ nhận việc
+            NgayLamViec: ngayMoi,
+            GioBatDau: gioBatDauMoi,
+            GioKetThuc: gioKetThucMoi,
+            NgayCapNhat: new Date()
+          }, { transaction: tx });
 
-        oCamManager.guiThongBaoNguoiDung(request.MaNguoiYeuCau, {
-          tieuDe: 'Yêu cầu đổi ca bị từ chối',
-          noiDung: `${req.user.HoTenNguoiDung || 'Người dùng'} đã từ chối yêu cầu đổi ca #${job.MaCaLam}.`,
-          data: request
-        });
+          await tx.commit();
+          tx = null;
 
-        return success(res, request, 'Đã từ chối yêu cầu đổi ca');
+          oCamManager.guiThongBaoNguoiDung(request.MaNguoiYeuCau, {
+            tieuDe: 'Nhân viên đã từ chối đổi ca',
+            noiDung: `Nhân viên đã từ chối yêu cầu đổi ca #${job.MaCaLam}. Ca làm việc đã được đưa lại lên bảng việc trống với ngày giờ mới để nhân viên khác nhận.`,
+            data: request
+          });
+
+          return success(res, request, 'Đã từ chối yêu cầu đổi ca. Ca làm việc đã chuyển về chờ nhận.');
+        } else {
+          // Khách hàng từ chối -> giữ nguyên lịch cũ và nhân viên cũ
+          await tx.commit();
+          tx = null;
+
+          oCamManager.guiThongBaoNguoiDung(request.MaNguoiYeuCau, {
+            tieuDe: 'Yêu cầu đổi ca bị từ chối',
+            noiDung: `Khách hàng đã từ chối yêu cầu đổi ca #${job.MaCaLam}. Vui lòng thực hiện ca làm đúng lịch cũ hoặc hủy ca nếu không thể làm.`,
+            data: request
+          });
+
+          return success(res, request, 'Đã từ chối yêu cầu đổi ca. Lịch làm việc được giữ nguyên.');
+        }
       }
 
       await job.update({
