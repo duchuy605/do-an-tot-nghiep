@@ -19,9 +19,10 @@ async function seedHinhThucXuLy() {
       { TenHinhThuc: 'Trừ lương nhân viên' },
       { TenHinhThuc: 'Đình chỉ nhân viên tạm thời' },
       { TenHinhThuc: 'Khóa tài khoản nhân viên' },
+      { TenHinhThuc: 'Bác bỏ khiếu nại ' },
     ]);
 
-    console.log('Seeded 5 resolution types successfully!');
+    
     const all = await HinhThucXuLy.findAll();
     all.forEach(t => console.log(`  ${t.MaHinhThucXuLy}: ${t.TenHinhThuc}`));
     process.exit(0);

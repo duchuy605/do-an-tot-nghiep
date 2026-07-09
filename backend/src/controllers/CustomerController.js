@@ -329,6 +329,14 @@ class CustomerController {
   // POST /bookings - Tạo đơn đặt lịch + Thanh toán (ATOMIC)
   // Chỉ khi thanh toán thành công mới lưu đơn đặt lịch vào database.
   // Nếu ví không đủ tiền → không tạo gì cả, trả về lỗi.
+  // Giải thích logic Đặt Lịch (Booking Logic):
+  // 1. Kiểm tra số dư ví (Ví Khách Hàng) trước khi thực hiện giao dịch (Transaction).
+  // 2. Chuyển đổi trạng thái ví: Trừ tiền ví khách hàng, cộng tiền vào ví tạm giữ (Escrow) của hệ thống.
+  // 3. Tạo bản ghi DonDatLich với TrangThai = 2 (Đã thanh toán). Đơn đặt lịch chứa thông tin tổng quan (định kỳ hoặc một lần).
+  // 4. Nếu là lịch định kỳ (Recurring jobs), hệ thống tự động tách thành nhiều ca làm việc (CaLamViec) tương ứng với số buổi.
+  // 5. Kiểm tra xung đột lịch (Conflict checking): Nếu khách hàng chọn đích danh 1 nhân viên, hệ thống sẽ duyệt qua từng ca làm việc và kiểm tra trong bảng CaLamViec xem nhân viên đó có ca nào trùng lấp thời gian (GioBatDau - GioKetThuc) vào cùng NgayLamViec hay không. Nếu trùng, rollback toàn bộ transaction.
+  // 6. Chuyển đổi trạng thái ca làm việc (State transitions): Nếu chọn nhân viên cụ thể -> TrangThaiDonHang = 0 (Chờ xác nhận từ nhân viên). Nếu không chọn nhân viên -> TrangThaiDonHang = 1 (Chờ nhận việc trên bảng tin chung).
+  // 7. Hoàn tất transaction và gửi thông báo theo thời gian thực (Real-time notification).
   // ============================================================
   async createBooking(req, res, next) {
     let tx;
@@ -497,10 +505,10 @@ class CustomerController {
           data: booking
         });
       } catch (notifErr) {
-        console.error('[NOTIFICATION ERROR]', notifErr.message);
+        console.error('[LỖI THÔNG BÁO]', notifErr.message);
       }
 
-      // Load full booking details to respond
+      // Tải đầy đủ thông tin đơn đặt lịch để phản hồi về cho client
       let fullBooking = booking;
       try {
         fullBooking = await DonDatLich.findByPk(booking.MaDatLich, {
@@ -510,7 +518,7 @@ class CustomerController {
           ]
         });
       } catch (loadErr) {
-        console.error('[LOAD BOOKING ERROR]', loadErr.message);
+        console.error('[LỖI TẢI ĐƠN ĐẶT LỊCH]', loadErr.message);
       }
 
       return success(res, {
@@ -665,6 +673,16 @@ class CustomerController {
     }
   }
 
+  // ============================================================
+  // POST /bookings/shifts/:id/reschedule - Yêu cầu đổi lịch ca làm việc
+  // Giải thích logic Đổi Lịch (Reschedule Logic):
+  // 1. Kiểm tra quyền hạn: Chỉ Khách Hàng sở hữu ca làm hoặc Nhân Viên đang được phân công mới có quyền gửi yêu cầu đổi lịch.
+  // 2. Kiểm tra trạng thái hợp lệ (State transitions): Ca làm việc phải ở trạng thái 0 (Chờ xác nhận) hoặc 1 (Đã nhận việc/Đang thực hiện). Không thể đổi ca đã hoàn thành hoặc đã hủy.
+  // 3. Kiểm tra thông tin giờ kết thúc: Nếu không truyền lên, hệ thống tự động tính toán dựa trên tổng giờ quy định của các dịch vụ trong đơn (Recurring jobs logic).
+  // 4. Kiểm tra thời gian hợp lệ: Thời gian bắt đầu mới phải cách hiện tại ít nhất 30 phút để đảm bảo tính khả thi.
+  // 5. Kiểm tra xung đột lịch (Conflict checking): Nếu ca có nhân viên, hệ thống kiểm tra xem nhân viên đó có lịch làm việc nào khác trùng với khoảng thời gian mới (GioBatDauMoi -> GioKetThucMoi) trong cùng NgayLamViec không. Nếu trùng, từ chối đổi lịch.
+  // 6. Tạo yêu cầu: Lưu vào bảng LichSuDoiLich với KetQua = 0 (Chờ xử lý) và gửi thông báo cho phía còn lại. Phía còn lại (Khách Hàng hoặc Nhân Viên) phải đồng ý thì lịch mới chính thức thay đổi.
+  // ============================================================
   async rescheduleShift(req, res, next) {
     try {
       const { error: valError } = rescheduleShiftSchema.validate(req.body);
@@ -794,6 +812,19 @@ class CustomerController {
     }
   }
 
+  // ============================================================
+  // POST /bookings/shifts/reschedule/:id/respond - Phản hồi yêu cầu đổi lịch
+  // Giải thích logic Phản Hồi Đổi Lịch (Respond Reschedule Logic):
+  // 1. Kiểm tra trạng thái: Đảm bảo yêu cầu đang ở trạng thái chờ (KetQua = 0) và ca làm việc chưa bị hủy hay hoàn thành.
+  // 2. Chuyển đổi trạng thái (State transitions) khi TỪ CHỐI (DongY = false):
+  //    - Nếu Nhân Viên từ chối: Yêu cầu bị hủy (KetQua = 2). Ca làm việc bị gỡ khỏi nhân viên này (MaNhanVien = null), chuyển trạng thái về 1 (Chờ nhận việc trên bảng tin chung) với ngày giờ mới do khách hàng yêu cầu.
+  //    - Nếu Khách Hàng từ chối: Yêu cầu bị hủy (KetQua = 2). Ca làm việc giữ nguyên ngày giờ và nhân viên cũ.
+  // 3. Chuyển đổi trạng thái khi ĐỒNG Ý (DongY = true):
+  //    - Kiểm tra lại xung đột lịch (Conflict checking) một lần nữa trước khi cập nhật.
+  //    - Cập nhật NgayLamViec, GioBatDau, GioKetThuc mới vào bảng CaLamViec.
+  //    - Cập nhật yêu cầu thành công (KetQua = 1).
+  // 4. Đồng bộ ngày tháng (Recurring logic): Nếu đơn đặt lịch chỉ có duy nhất 1 ca làm việc (đơn lẻ), cập nhật luôn thời gian mới vào bảng DonDatLich để đồng bộ.
+  // ============================================================
   async respondRescheduleShift(req, res, next) {
     let tx;
     try {
@@ -828,9 +859,9 @@ class CustomerController {
       if (![0, 1].includes(job.TrangThaiDonHang)) {
         return error(res, 'Chỉ có thể xử lý yêu cầu đổi lịch cho ca chưa hoàn thành hoặc chưa hủy', 400);
       }
-      console.log(request.NgayMoi);
-      console.log(typeof request.NgayMoi);
-      console.log(request.NgayMoi instanceof Date);
+      console.log('Ngày mới:', request.NgayMoi);
+      console.log('Kiểu dữ liệu ngày mới:', typeof request.NgayMoi);
+      console.log('Ngày mới có phải là Date không:', request.NgayMoi instanceof Date);
       const ngayMoi = request.NgayMoi.split(' ')[0];
       const gioBatDauMoi = request.GioBatDauMoi;
       const gioKetThucMoi = request.GioKetThucMoi;

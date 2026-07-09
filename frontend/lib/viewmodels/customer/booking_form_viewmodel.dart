@@ -12,14 +12,15 @@ class BookingFormViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Dịch vụ bổ sung
+  // Dịch vụ bổ sung (Các dịch vụ được khách hàng chọn thêm ngoài dịch vụ chính)
   List<ServiceModel> _availableServices = [];
-  final Map<int, int> _selectedAdditionalServices = {}; // MaDichVu -> SoGio (số giờ)
+  final Map<int, int> _selectedAdditionalServices = {}; // MaDichVu -> SoGio (Lưu trữ danh sách mã dịch vụ và số lượng/số giờ tương ứng)
 
-  // Chọn nhân viên yêu thích
+  // Chọn nhân viên yêu thích (Khách hàng có thể ưu tiên chọn một nhân viên cụ thể)
   List<Map<String, dynamic>> _providers = [];
-  Map<String, dynamic>? _selectedProvider;
+  Map<String, dynamic>? _selectedProvider; // Lưu trữ thông tin nhân viên đang được chọn
   // Danh sách ca làm của nhân viên {date: YYYY-MM-DD, start: HH:mm, end: HH:mm}
+  // Giúp giao diện hiển thị các khoảng thời gian nhân viên đã có lịch bận để khách hàng tránh chọn trùng
   List<Map<String, dynamic>> _providerBusyShifts = [];
 
   final Map<String, bool> _weekdays = {
@@ -45,7 +46,7 @@ class BookingFormViewModel extends ChangeNotifier {
   bool _isCalculatingPrice = false;
   Timer? _debounceTimer;
 
-  // Getters
+  // Getters - Trả về các trạng thái hiện tại của form để View hiển thị
   int get bookingType => _bookingType;
   DateTime get startDate => _startDate;
   DateTime get endDate => _endDate;
@@ -67,23 +68,28 @@ class BookingFormViewModel extends ChangeNotifier {
   bool get isCalculatingPrice => _isCalculatingPrice;
   List<Map<String, dynamic>> get providerBusyShifts => _providerBusyShifts;
 
+  /// Thiết lập ID dịch vụ chính và tự động gọi API tính toán lại giá tiền tạm tính
   void setMainServiceId(int id) {
     _mainServiceId = id;
     _triggerPreviewPrice();
   }
 
+  /// Kích hoạt việc gọi API để lấy báo giá tạm tính (Preview Price)
+  /// Sử dụng kỹ thuật Debounce (chờ 500ms không có thay đổi mới gọi API)
+  /// để tránh gọi API liên tục làm quá tải server khi người dùng thay đổi nhiều tuỳ chọn nhanh chóng
   void _triggerPreviewPrice() {
-    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel(); // Hủy timer hiện tại nếu có thay đổi mới
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       if (_mainServiceId == null) return;
       _isCalculatingPrice = true;
-      notifyListeners();
+      notifyListeners(); // Cập nhật UI hiển thị trạng thái đang tính toán
       
+      // Tạo một payload giả (dummy data) cho địa chỉ và mô tả để gọi API tính giá
       final bookingData = buildBookingData("dummy", "dummy", _mainServiceId!);
       try {
         final response = await ApiService.previewBookingPrice(bookingData);
         if (response['success'] == true) {
-          _temporaryTotalPrice = double.parse(response['data']['totalPrice'].toString());
+          _temporaryTotalPrice = double.parse(response['data']['totalPrice'].toString()); // Cập nhật tổng tiền từ API
         } else {
           _temporaryTotalPrice = 0;
         }
@@ -92,7 +98,7 @@ class BookingFormViewModel extends ChangeNotifier {
       }
       
       _isCalculatingPrice = false;
-      notifyListeners();
+      notifyListeners(); // Thông báo cho UI cập nhật giá tiền mới
     });
   }
 
@@ -173,28 +179,32 @@ class BookingFormViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Xử lý việc chọn hoặc bỏ chọn một nhân viên cụ thể
+  /// Khi chọn nhân viên, hệ thống sẽ tự động gọi API lấy lịch bận của nhân viên đó
   Future<void> setSelectedProvider(Map<String, dynamic>? provider) async {
     _selectedProvider = provider;
-    _providerBusyShifts = [];
-    _triggerPreviewPrice();
+    _providerBusyShifts = []; // Xóa danh sách ca bận cũ
+    _triggerPreviewPrice(); // Tính toán lại giá (có thể thay đổi nếu có phụ phí chọn nhân viên)
     notifyListeners();
     
-    // Load ca làm của nhân viên được chọn
+    // Load lịch các ca làm việc mà nhân viên đã được phân công từ trước (ca bận)
+    // Dữ liệu này giúp UI chặn khách hàng chọn vào những giờ nhân viên đã có khách
     if (provider != null) {
       final providerId = provider['MaNguoiDung'];
       if (providerId != null) {
         try {
+          // Gọi API lấy lịch bận của nhân viên
           final response = await ApiService.getProviderBusyDates(providerId as int);
           if (response['success'] == true) {
             final List data = response['data'] ?? [];
             _providerBusyShifts = data.map<Map<String, dynamic>>((item) => {
-              'date': item['date'].toString().substring(0, 10),
-              'start': item['start'].toString().substring(0, 5), // HH:mm
-              'end': item['end'].toString().substring(0, 5),     // HH:mm
+              'date': item['date'].toString().substring(0, 10), // Trích xuất ngày YYYY-MM-DD
+              'start': item['start'].toString().substring(0, 5), // Trích xuất giờ bắt đầu HH:mm
+              'end': item['end'].toString().substring(0, 5),     // Trích xuất giờ kết thúc HH:mm
             }).toList();
           }
         } catch (_) {}
-        notifyListeners();
+        notifyListeners(); // Cập nhật UI với danh sách ca bận mới
       }
     }
   }
@@ -214,43 +224,49 @@ class BookingFormViewModel extends ChangeNotifier {
     return '';
   }
 
+  /// Hàm nạp các dữ liệu cần thiết ban đầu cho form đặt lịch
+  /// Bao gồm: Các gói định kỳ, danh sách dịch vụ bổ sung, và danh sách nhân viên
   Future<void> loadPackages(int defaultDuration) async {
     if (defaultDuration > 0) {
-      _durationHours = defaultDuration.toDouble();
+      _durationHours = defaultDuration.toDouble(); // Cài đặt thời gian làm việc mặc định theo dịch vụ
     }
     _isLoading = true;
     notifyListeners();
 
-    // Lấy danh sách loại gói từ API (bảng LoaiGoi)
+    // 1. Gọi API lấy danh sách các gói đặt lịch định kỳ (bảng LoaiGoi)
+    // Các gói này định nghĩa số tháng và số buổi một tuần
     try {
       final response = await ApiService.getCustomerPackages();
       if (response['success'] == true) {
         final List pkgs = response['data'] ?? [];
         _allPackages = pkgs;
+        // Trích xuất danh sách số tháng (ví dụ 1 tháng, 3 tháng) và lọc bỏ trùng lặp
         _availableMonths = pkgs.map<int>((p) => p['SoThang'] as int).toSet().toList()..sort();
         if (_availableMonths.isNotEmpty) {
-          _selectedMonth = _availableMonths.first;
-          filterPackages();
+          _selectedMonth = _availableMonths.first; // Chọn mặc định tháng đầu tiên
+          filterPackages(); // Lọc các gói tương ứng với số tháng đã chọn
         }
       }
     } catch (_) {}
     _isLoading = false;
     notifyListeners();
 
-    // Load danh sách dịch vụ để hiển thị dịch vụ bổ sung
+    // 2. Gọi API lấy danh sách tất cả các dịch vụ đang hoạt động
+    // Để hiển thị trong phần chọn Dịch vụ bổ sung (Additional Services)
     try {
       final svcResponse = await ApiService.getServices();
       if (svcResponse['success'] == true) {
         final List svcList = svcResponse['data'] ?? [];
         _availableServices = svcList
             .map<ServiceModel>((s) => ServiceModel.fromJson(s))
-            .where((s) => s.trangThai)
+            .where((s) => s.trangThai) // Chỉ lấy các dịch vụ có trạng thái đang hoạt động
             .toList();
         notifyListeners();
       }
     } catch (_) {}
 
-    // Load danh sách nhân viên
+    // 3. Gọi API lấy danh sách toàn bộ nhân viên
+    // Phục vụ cho tính năng "Chọn nhân viên ưu tiên" của khách hàng
     try {
       final provResponse = await ApiService.getProviders();
       if (provResponse['success'] == true) {
@@ -277,19 +293,23 @@ class BookingFormViewModel extends ChangeNotifier {
     updateEndDate();
   }
 
+  /// Cập nhật ngày kết thúc dựa trên loại đặt lịch và gói đã chọn
+  /// Nếu là đặt 1 lần, ngày kết thúc bằng ngày bắt đầu.
+  /// Nếu là đặt định kỳ, tính toán ngày kết thúc bằng cách cộng thêm số tháng của gói.
   void updateEndDate() {
     if (_bookingType == 1 || (_selectedPackage == null && _selectedMonth == null)) {
-      _endDate = _startDate;
+      _endDate = _startDate; // Đặt lịch một lần thì kết thúc trong ngày
       return;
     }
 
     int months = 1;
     if (_selectedPackage != null) {
-      months = _selectedPackage!['SoThang'] ?? 1;
+      months = _selectedPackage!['SoThang'] ?? 1; // Lấy số tháng từ gói được chọn
     } else if (_selectedMonth != null) {
-      months = _selectedMonth!;
+      months = _selectedMonth!; // Hoặc từ số tháng đang chọn
     }
     
+    // Tạo đối tượng DateTime mới bằng cách cộng số tháng vào tháng của ngày bắt đầu
     _endDate = DateTime(
       _startDate.year,
       _startDate.month + months,
@@ -323,62 +343,76 @@ class BookingFormViewModel extends ChangeNotifier {
     return '$hour:$minute:00';
   }
 
-  /// Build dữ liệu booking mà không gọi API.
-  /// Dùng để truyền sang BookingCheckoutScreen.
+  /// Hàm tạo payload JSON chuẩn để gửi lên API tạo đơn đặt lịch
+  /// Thu thập toàn bộ dữ liệu từ Form (Ngày, Giờ, Địa chỉ, Dịch vụ, Nhân viên, v.v...)
+  /// Hàm này cũng được dùng để build dữ liệu ảo khi gọi API báo giá tạm tính
   Map<String, dynamic> buildBookingData(String address, String desc, int serviceId) {
+    // Chuyển đổi Ngày bắt đầu và Ngày kết thúc sang chuẩn YYYY-MM-DD
     final String startStr = _startDate.toIso8601String().split('T')[0];
     final String endStr = _bookingType == 1 ? startStr : _endDate.toIso8601String().split('T')[0];
+    
+    // Định dạng giờ bắt đầu và tính toán giờ kết thúc thành chuỗi HH:mm:ss
     final String gioBatDauStr = _formatTimeOfDay(_startTime);
     final String gioKetThucStr = _calculateEndTime(_startTime, _durationHours);
 
     return {
-      'LoaiDatLich': _bookingType,
+      'LoaiDatLich': _bookingType, // 1: Một lần, 2: Định kỳ
       'NgayBatDau': startStr,
       'NgayKetThuc': endStr,
       'GioBatDau': gioBatDauStr,
       'GioKetThuc': gioKetThucStr,
       'DiaChiLamViec': address,
       'MoTaCongViec': desc,
+      // Xây dựng danh sách các dịch vụ được chọn (Dịch vụ chính + Dịch vụ bổ sung)
       'DichVus': [
         {
           'MaDichVu': serviceId,
           'SoLuong': 1,
-          'LaDichVuChinh': true,
+          'LaDichVuChinh': true, // Đánh dấu đây là dịch vụ chính
         },
+        // Duyệt qua map các dịch vụ bổ sung và chuyển thành list các object JSON
         ..._selectedAdditionalServices.entries.map((e) => {
           'MaDichVu': e.key,
           'SoLuong': e.value,
-          'LaDichVuChinh': false,
+          'LaDichVuChinh': false, // Đây là dịch vụ phụ thêm
         }),
       ],
+      // Các trường dữ liệu dành riêng cho đặt lịch định kỳ
       if (_bookingType == 2 && _selectedPackage != null)
         'MaLoaiGoi': _selectedPackage!['MaLoaiGoi'],
       if (_bookingType == 2)
         'ThuTrongTuan': _weekdays.entries
-            .where((e) => e.value)
+            .where((e) => e.value) // Lọc các ngày thứ đã được tick chọn (true)
             .map((e) => e.key)
-            .join(','),
+            .join(','), // Ghép thành chuỗi (vd: '2,4,6')
+            
+      // Truyền ID nhân viên nếu khách hàng có chọn nhân viên yêu thích
       if (_selectedProvider != null)
         'MaNhanVien': _selectedProvider!['MaNguoiDung'],
     };
   }
 
+  /// Thực hiện quá trình Submit form tạo đơn đặt lịch thực sự lên server API
+  /// Trả về một Map chứa success (true/false) và message phản hồi từ server
   Future<Map<String, dynamic>> submitBooking(String address, String desc, int serviceId) async {
-    _isLoading = true;
+    _isLoading = true; // Bật cờ loading để khóa form
     _errorMessage = null;
     notifyListeners();
 
+    // 1. Sinh dữ liệu chuẩn từ Form
     final bookingData = buildBookingData(address, desc, serviceId);
 
     try {
+      // 2. Gửi request POST tạo đơn lịch mới tới API backend
       final response = await ApiService.createBooking(bookingData);
       _isLoading = false;
       if (response['success'] != true) {
-        _errorMessage = response['message'] ?? 'Tạo đơn đặt lịch thất bại.';
+        _errorMessage = response['message'] ?? 'Tạo đơn đặt lịch thất bại.'; // Bắt lỗi nghiệp vụ từ server
       }
       notifyListeners();
-      return response;
+      return response; // Trả kết quả về cho Controller/UI xử lý tiếp (ví dụ: chuyển trang)
     } catch (e) {
+      // Bắt các lỗi về Network hoặc Exception
       _isLoading = false;
       _errorMessage = 'Lỗi kết nối hoặc dữ liệu gửi đi không hợp lệ.';
       notifyListeners();

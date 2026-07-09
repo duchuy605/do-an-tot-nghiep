@@ -80,8 +80,11 @@ class _ProviderCalendarDialogState extends State<ProviderCalendarDialog> {
     return d.year == now.year && d.month == now.month && d.day == now.day;
   }
 
-  bool _isDisabled(DateTime d) =>
-      d.isBefore(widget.firstDate) || d.isAfter(widget.lastDate);
+  bool _isDisabled(DateTime d) {
+    final firstDay = DateTime(widget.firstDate.year, widget.firstDate.month, widget.firstDate.day);
+    final lastDay = DateTime(widget.lastDate.year, widget.lastDate.month, widget.lastDate.day);
+    return d.isBefore(firstDay) || d.isAfter(lastDay);
+  }
 
   void _prevMonth() {
     setState(() {
@@ -237,7 +240,7 @@ class _ProviderCalendarDialogState extends State<ProviderCalendarDialog> {
                                     ? Colors.grey.shade400
                                     : conflict
                                         ? Colors.red
-                                        : Colors.blueGrey.shade100, // Màu nhạt theo mockup
+                                        : Colors.black87, // Màu đậm cho ngày bình thường
                           ),
                         ),
                       ),

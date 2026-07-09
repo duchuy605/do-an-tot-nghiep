@@ -71,7 +71,21 @@ class MyJobsViewModel extends ChangeNotifier {
     }
   }
 
-  // Nhận việc cho ca chờ xác nhận
+  /// Hàm xử lý logic nhận việc (acceptJob) cho các ca chờ xác nhận từ góc độ Frontend.
+  /// 
+  /// Trong quy trình của ứng dụng, thao tác nhận việc này cho phép nhân viên xác nhận làm một ca cụ thể.
+  /// Logic vận hành và kiểm tra trùng lặp (Overlap checking) được thiết kế như sau:
+  /// 
+  /// 1. Cập nhật trạng thái giao diện: Biến trạng thái `_isLoading` được gán bằng `true`, kết hợp với `notifyListeners()` để yêu cầu tầng UI render lại và hiển thị biểu tượng loading. Điều này khóa thao tác UI tạm thời, tránh việc nhân viên bấm nút nhận việc nhiều lần liên tiếp gây ra gửi trùng lặp request.
+  /// 2. Gọi API đến Server: Sử dụng `ApiService.acceptJob(caLamId)` để giao tiếp với backend qua giao thức HTTP.
+  /// 3. Logic kiểm tra trùng lặp thời gian (Overlap checking):
+  ///    - Về mặt lý thuyết, Frontend có thể duyệt qua danh sách `_myJobs` để kiểm tra thủ công xem ca làm mới có thời gian (start time - end time) giao thoa với các ca đã nhận hay không.
+  ///    - TUY NHIÊN, để đảm bảo tính nhất quán của dữ liệu và bảo mật nghiệp vụ (Bảo vệ luận văn), logic này được quyết định giao hoàn toàn cho Backend xử lý.
+  ///    - Nguyên nhân: Backend đóng vai trò "Single Source of Truth". Nếu thực hiện kiểm tra ở Frontend, chúng ta sẽ gặp rủi ro "Race Condition" khi dữ liệu trả về từ API có độ trễ, hoặc nhân viên sử dụng nhiều thiết bị. Backend sử dụng các cơ chế database level (như Transaction lock) để truy vấn và phát hiện Overlap một cách an toàn tuyệt đối.
+  ///    - Frontend đóng vai trò tiếp nhận: Khi xảy ra trùng giờ, API từ Backend sẽ trả lời bằng một object JSON chứa `success: false` và `message` mô tả lỗi trùng lặp. Frontend chỉ việc parse thông báo này và báo cho người dùng.
+  /// 4. Xử lý phản hồi (Response Handling):
+  ///    - Trả về đối tượng `Map<String, dynamic>` cho View (Widget) gọi nó. View sẽ dựa vào trường `success` để hiển thị Snackbar báo lỗi (nếu trùng ca/lỗi) hoặc điều hướng/cập nhật lại danh sách nếu thành công.
+  /// 5. Đảm bảo luồng thực thi: Khối `try-catch` đảm bảo mọi ngoại lệ (như mất mạng, server sập) đều được xử lý gọn gàng. Ở mọi tình huống (kể cả Exception), biến `_isLoading` đều được reset về `false` để khôi phục trạng thái UI.
   Future<Map<String, dynamic>> acceptJob(int caLamId) async {
     _isLoading = true;
     notifyListeners();

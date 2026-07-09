@@ -475,49 +475,81 @@ Future<void> _selectTime(BuildContext context) async {
                             const SizedBox(height: 12),
                             const Text('Chọn các thứ làm việc trong tuần', style: TextStyle(fontWeight: FontWeight.bold, color: darkColor)),
                             const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _viewModel.weekdays.keys.map((day) {
-                                final isSelected = _viewModel.weekdays[day]!;
-                                return FilterChip(
-                                  label: Text(day == 'CN' ? 'CN' : 'T$day'),
-                                  selected: isSelected,
-                                  selectedColor: orangeColor.withOpacity(0.15),
-                                  checkmarkColor: orangeColor,
-                                  backgroundColor: bgColor,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  labelStyle: TextStyle(
-                                    color: isSelected ? orangeColor : darkColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  onSelected: (val) {
-                                    _viewModel.toggleWeekday(day, val);
-                                  },
-                                );
-                              }).toList(),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _viewModel.weekdays.keys.map((day) {
+                                  final isSelected = _viewModel.weekdays[day]!;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: FilterChip(
+                                      label: Text(day == 'CN' ? 'CN' : 'T$day'),
+                                      selected: isSelected,
+                                      selectedColor: orangeColor.withOpacity(0.15),
+                                      checkmarkColor: orangeColor,
+                                      backgroundColor: bgColor,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      labelStyle: TextStyle(
+                                        color: isSelected ? orangeColor : darkColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      onSelected: (val) {
+                                        _viewModel.toggleWeekday(day, val);
+                                      },
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             const Divider(),
                           ],
 
                           // Dịch vụ bổ sung
-                          if (_viewModel.availableServices.where((s) => s.maDichVu != widget.service.maDichVu).isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Dịch vụ bổ sung',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: darkColor),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Chọn thêm dịch vụ và số giờ sử dụng',
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                            const SizedBox(height: 12),
-                            ..._viewModel.availableServices
-                                .where((s) => s.maDichVu != widget.service.maDichVu)
-                                .map((svc) {
-                              final isSelected = _viewModel.selectedAdditionalServices.containsKey(svc.maDichVu);
+                          Builder(
+                            builder: (context) {
+                              final keywords = ['giặt ủi', 'nấu ăn', 'trẻ em', 'dọn dẹp'];
+                              
+                              var extraServices = _viewModel.availableServices.where((s) {
+                                if (s.maDichVu == widget.service.maDichVu) return false;
+                                final lowerName = s.tenDichVu.toLowerCase();
+                                return keywords.any((kw) => lowerName.contains(kw));
+                              }).toList();
+                              
+                              extraServices.sort((a, b) {
+                                int rank(ServiceModel s) {
+                                  final name = s.tenDichVu.toLowerCase();
+                                  if (name.contains('giặt ủi')) return 1;
+                                  if (name.contains('nấu ăn')) return 2;
+                                  if (name.contains('trẻ em')) return 3;
+                                  if (name.contains('dọn dẹp')) return 4;
+                                  return 5;
+                                }
+                                return rank(a).compareTo(rank(b));
+                              });
+
+                              if (extraServices.length > 3) {
+                                extraServices = extraServices.take(3).toList();
+                              }
+
+                              if (extraServices.isEmpty) return const SizedBox.shrink();
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Dịch vụ bổ sung',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: darkColor),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Chọn thêm dịch vụ và số giờ sử dụng',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ...extraServices.map((svc) {
+                                    final isSelected = _viewModel.selectedAdditionalServices.containsKey(svc.maDichVu);
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 10),
                                 decoration: BoxDecoration(
@@ -582,10 +614,13 @@ Future<void> _selectTime(BuildContext context) async {
                                   ),
                                 ),
                               );
-                            }),
-                            const SizedBox(height: 4),
-                            const Divider(),
-                          ],
+                                  }).toList(),
+                                  const SizedBox(height: 4),
+                                  const Divider(),
+                                ],
+                              );
+                            },
+                          ),
 
                           // Chọn nhân viên (tùy chọn)
                           const SizedBox(height: 12),

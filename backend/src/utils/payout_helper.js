@@ -2,6 +2,16 @@ const { Op } = require('sequelize');
 const { CaLamViec, KhieuNai, ViTien, LichSuViTien } = require('../models');
 const sequelize = require('../config/database');
 
+/**
+ * Logic giải ngân (payout) cho nhân viên (provider):
+ * Hệ thống sẽ tự động kiểm tra các ca làm việc đã hoàn thành nhưng chưa được thanh toán tiền cho nhân viên.
+ * 
+ * Quy tắc giải ngân:
+ * 1. Nếu KHÔNG CÓ khiếu nại liên quan đến ca làm việc: Số tiền sẽ được giữ trong ví tạm giữ của hệ thống trong 24 giờ kể từ khi hoàn thành ca làm việc. Sau 24h, tiền được tự động giải ngân (chuyển) vào ví của nhân viên.
+ * 2. Nếu CÓ khiếu nại: Số tiền sẽ bị giữ lại tối đa 72 giờ và chỉ được giải ngân khi TẤT CẢ các khiếu nại liên quan đến ca làm việc đó đã được xử lý xong (TrangThaiXuLy = 2).
+ * 
+ * Giao dịch chuyển tiền được thực hiện dưới dạng Transaction trong cơ sở dữ liệu để đảm bảo tính nhất quán (trừ tiền hệ thống, cộng tiền nhân viên và ghi lịch sử giao dịch thành công đồng thời).
+ */
 async function checkAndExecutePayoutsForProvider(providerId) {
   let tx;
   try {
@@ -96,13 +106,13 @@ async function checkAndExecutePayoutsForProvider(providerId) {
         NoiDungGiaoDich: `Giải ngân tự động cho ${validShifts.length} ca làm việc đủ điều kiện (24h/72h).`
       }, { transaction: tx });
 
-      console.log(`[ON-DEMAND PAYOUT] Released ${totalPayout} to provider #${providerId} for ${validShifts.length} shifts.`);
+      console.log(`[GIẢI NGÂN THEO YÊU CẦU] Đã giải ngân ${totalPayout} cho nhân viên #${providerId} ứng với ${validShifts.length} ca làm việc.`);
     }
 
     await tx.commit();
   } catch (err) {
     if (tx) await tx.rollback();
-    console.error('[ON-DEMAND PAYOUT ERROR]:', err.message);
+    console.error('[LỖI GIẢI NGÂN THEO YÊU CẦU]:', err.message);
   }
 }
 
