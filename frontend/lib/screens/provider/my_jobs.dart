@@ -171,9 +171,13 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
   }
 
   Future<void> _handleRescheduleJob(dynamic job) async {
-    DateTime selectedDate = DateTime.tryParse(job['NgayLamViec'] ?? '') ?? DateTime.now();
-    TimeOfDay startTime = _parseTimeOfDay(job['GioBatDau'] ?? '08:00:00');
-    TimeOfDay endTime = _parseTimeOfDay(job['GioKetThuc'] ?? '10:00:00');
+    DateTime oldDate = DateTime.tryParse(job['NgayLamViec'] ?? '') ?? DateTime.now();
+    TimeOfDay oldStartTime = _parseTimeOfDay(job['GioBatDau'] ?? '08:00:00');
+    TimeOfDay oldEndTime = _parseTimeOfDay(job['GioKetThuc'] ?? '10:00:00');
+    
+    DateTime selectedDate = oldDate;
+    TimeOfDay startTime = oldStartTime;
+    TimeOfDay endTime = oldEndTime;
     final reasonController = TextEditingController();
 
     final confirmed = await showDialog<bool>(
@@ -185,6 +189,19 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Lịch cũ
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history, size: 18, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Lịch cũ: ${_formatDate(oldDate)} lúc ${oldStartTime.format(context)} - ${oldEndTime.format(context)}', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500))),
+                  ],
+                ),
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.calendar_month_outlined),
@@ -340,7 +357,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Nhận Tất Cả', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+            child: const Text('Nhận việc', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
           ),
         ],
       ),
@@ -572,7 +589,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Text('NHẬN TẤT CẢ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                          child: const Text('NHẬN VIỆC', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                         ),
                       ],
                     ),
@@ -960,14 +977,14 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                     Row(
                       children: [
                         OutlinedButton(
-                          onPressed: () => _handleCancelJob(id),
+                          onPressed: () => _handleRescheduleJob(job),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
+                            foregroundColor: orangeColor,
+                            side: BorderSide(color: orangeColor),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                           ),
-                          child: const Text('Từ Chối'),
+                          child: const Text('Đổi Ca'),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
@@ -1055,7 +1072,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    status == 0 ? '🟠 Chờ xác nhận' : (status == 2 ? '✅ Đã hoàn thành' : (status == 3 ? '❌ Đã hủy' : '🔵 Đã nhận việc')),
+                    status == 0 ? '🟠 Chờ xác nhận' : (status == 2 ? ' Đã hoàn thành' : (status == 3 ? ' Đã hủy' : ' Đã nhận việc')),
                     style: TextStyle(
                       color: status == 2 ? Colors.green : (status == 3 ? Colors.red : Colors.blue),
                       fontWeight: FontWeight.bold, fontSize: 13,
@@ -1281,12 +1298,12 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () { Navigator.pop(context); _handleCancelJob(id); },
-                        icon: const Icon(Icons.cancel_outlined, size: 18),
-                        label: const Text('Từ Chối'),
+                        onPressed: () { Navigator.pop(context); _handleRescheduleJob(job); },
+                        icon: const Icon(Icons.event_repeat_rounded, size: 18),
+                        label: const Text('Đổi Ca'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
+                          foregroundColor: orangeColor,
+                          side: BorderSide(color: orangeColor),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),

@@ -47,6 +47,8 @@ const server = http.createServer(app);
 // Khởi tạo kết nối Socket.IO
 oCamManager.initialize(server);
 
+// Tự động kích hoạt giải ngân dựa trên sự kiện (không dùng node-cron chạy ngầm)
+
 // Kết nối cơ sở dữ liệu & khởi động server
 const PORT = process.env.PORT || 3000;
 
@@ -57,8 +59,8 @@ async function startServer() {
     console.log('Kết nối cơ sở dữ liệu MySQL thành công qua Sequelize!');
 
     // Khởi động server
-    server.listen(PORT, () => {
-      console.log(` Server đang chạy tại địa chỉ: http://localhost:${PORT}`);
+    server.listen(PORT,'0.0.0.0', () => {
+      console.log(` Server đang chạy tại địa chỉ: http://0.0.0.0:${PORT}`);
     });
   } catch (error) {
     console.error('Không thể kết nối cơ sở dữ liệu MySQL:', error);

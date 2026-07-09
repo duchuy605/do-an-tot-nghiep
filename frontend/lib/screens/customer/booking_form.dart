@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../viewmodels/customer/booking_form_viewmodel.dart';
 import '../../models/service_model.dart';
 import 'booking_checkout.dart';
+import '../../widgets/provider_calendar_dialog.dart';
 
 class BookingFormScreen extends StatefulWidget {
   final ServiceModel service;
@@ -26,6 +27,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Future<void> _initData() async {
+    _viewModel.setMainServiceId(widget.service.maDichVu);
     final addr = await _viewModel.loadDefaultAddress();
     setState(() {
       _addressController.text = addr;
@@ -42,11 +44,18 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
-    final DateTime? picked = await showDatePicker(
+    final DateTime? picked = await showDialog<DateTime>(
       context: context,
-      initialDate: isStart ? _viewModel.startDate : _viewModel.endDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 90)),
+      builder: (context) => ProviderCalendarDialog(
+        initialDate: isStart ? _viewModel.startDate : _viewModel.endDate,
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 90)),
+        // Truyền danh sách ca làm đầy đủ {date, start, end}
+        providerShifts: _viewModel.providerBusyShifts,
+        // Giờ bắt đầu và số giờ dự kiến đặt của khách
+        plannedStartTime: _viewModel.startTime,
+        plannedDurationHours: _viewModel.durationHours,
+      ),
     );
     if (picked != null) {
       if (isStart) {
@@ -177,6 +186,14 @@ Future<void> _selectTime(BuildContext context) async {
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,###', 'vi_VN');
     return '${formatter.format(amount)} đ';
+  }
+
+  String _formatDuration(double hours) {
+    final int h = hours.floor();
+    final int m = ((hours - h) * 60).round();
+    if (h == 0) return '$m phút';
+    if (m == 0) return '$h giờ';
+    return '$h giờ $m phút';
   }
 
   // Hiển thị bottom sheet chi tiết nhân viên
@@ -369,13 +386,13 @@ Future<void> _selectTime(BuildContext context) async {
                           ListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text('Số giờ dọn dẹp mỗi buổi', style: TextStyle(fontWeight: FontWeight.bold, color: darkColor)),
-                            subtitle: Text('${_viewModel.durationHours} giờ làm việc'),
-                            trailing: DropdownButton<int>(
+                            subtitle: Text(_formatDuration(_viewModel.durationHours)),
+                            trailing: DropdownButton<double>(
                               value: _viewModel.durationHours,
-                              items: [1,2, 3, 4, 5, 6, 8]
-                                  .map((h) => DropdownMenuItem(
+                              items: List.generate(8, (index) => (index + 1) * 0.5)
+                                  .map((h) => DropdownMenuItem<double>(
                                         value: h,
-                                        child: Text('$h giờ'),
+                                        child: Text(_formatDuration(h)),
                                       ))
                                   .toList(),
                               onChanged: (val) {
@@ -413,35 +430,7 @@ Future<void> _selectTime(BuildContext context) async {
                                 );
                               }).toList(),
                             ),
-                            const SizedBox(height: 16),
-                            const Text('Chọn số buổi làm việc cho gói', style: TextStyle(fontWeight: FontWeight.bold, color: darkColor)),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 8,
-                              children: _viewModel.filteredPackages.map((pkg) {
-                                final isSelected = _viewModel.selectedPackage?['MaLoaiGoi'] == pkg['MaLoaiGoi'];
-                                final int sessions = pkg['SoBuoi'];
-                                final double discount = double.tryParse(pkg['PhanTramGiamGia'].toString()) ?? 0.0;
-                                return ChoiceChip(
-                                  label: Text('$sessions Buổi ${discount > 0 ? "(-${discount.toStringAsFixed(0)}%)" : ""}'),
-                                  selected: isSelected,
-                                  selectedColor: orangeColor.withOpacity(0.15),
-                                  checkmarkColor: orangeColor,
-                                  backgroundColor: bgColor,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  labelStyle: TextStyle(
-                                    color: isSelected ? orangeColor : darkColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  onSelected: (selected) {
-                                    if (selected) _viewModel.setSelectedPackage(pkg);
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                            const SizedBox(height: 12),
-                            const Divider(),
+
                           ],
 
                           // Date picker or weekday pickers
@@ -492,7 +481,7 @@ Future<void> _selectTime(BuildContext context) async {
                               children: _viewModel.weekdays.keys.map((day) {
                                 final isSelected = _viewModel.weekdays[day]!;
                                 return FilterChip(
-                                  label: Text('T$day'),
+                                  label: Text(day == 'CN' ? 'CN' : 'T$day'),
                                   selected: isSelected,
                                   selectedColor: orangeColor.withOpacity(0.15),
                                   checkmarkColor: orangeColor,
@@ -757,32 +746,52 @@ Future<void> _selectTime(BuildContext context) async {
                           const SizedBox(height: 32),
 
                           // Submit Button
-                          ElevatedButton(
-                            onPressed: _viewModel.isLoading ? null : _submitBooking,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: orangeColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 1,
-                            ),
-                            child: _viewModel.isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                  )
-                                : const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.payment_rounded, size: 20),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'TIẾN HÀNH THANH TOÁN',
-                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.1),
-                                      ),
-                                    ],
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Tạm tính:', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                    const SizedBox(height: 4),
+                                    _viewModel.isCalculatingPrice 
+                                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: orangeColor))
+                                      : Text(_formatCurrency(_viewModel.temporaryTotalPrice), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: orangeColor)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: ElevatedButton(
+                                  onPressed: _viewModel.isLoading ? null : _submitBooking,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: orangeColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    elevation: 1,
                                   ),
+                                  child: _viewModel.isLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.payment_rounded, size: 20),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'THANH TOÁN',
+                                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 20),
                         ],
@@ -795,3 +804,9 @@ Future<void> _selectTime(BuildContext context) async {
     );
   }
 }
+
+// ============================================================
+// Widget lịch tùy chỉnh hiển thị ngày bận của nhân viên (vòng đỏ)
+// Chỉ đánh dấu đỏ khi giờ đặt của khách TRÙNG khung giờ ca làm của nhân viên
+// ============================================================
+

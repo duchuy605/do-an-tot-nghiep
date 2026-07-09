@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../services/api_service.dart';
 import '../../../models/service_model.dart';
@@ -7,7 +8,7 @@ class BookingFormViewModel extends ChangeNotifier {
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now();
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 30);
-  int _durationHours = 2;
+  double _durationHours = 2.0;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -18,6 +19,8 @@ class BookingFormViewModel extends ChangeNotifier {
   // Chọn nhân viên yêu thích
   List<Map<String, dynamic>> _providers = [];
   Map<String, dynamic>? _selectedProvider;
+  // Danh sách ca làm của nhân viên {date: YYYY-MM-DD, start: HH:mm, end: HH:mm}
+  List<Map<String, dynamic>> _providerBusyShifts = [];
 
   final Map<String, bool> _weekdays = {
     '2': false,
@@ -36,13 +39,18 @@ class BookingFormViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _filteredPackages = [];
   int? _selectedMonth;
   Map<String, dynamic>? _selectedPackage;
+  
+  int? _mainServiceId;
+  double _temporaryTotalPrice = 0.0;
+  bool _isCalculatingPrice = false;
+  Timer? _debounceTimer;
 
   // Getters
   int get bookingType => _bookingType;
   DateTime get startDate => _startDate;
   DateTime get endDate => _endDate;
   TimeOfDay get startTime => _startTime;
-  int get durationHours => _durationHours;
+  double get durationHours => _durationHours;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   Map<String, bool> get weekdays => _weekdays;
@@ -55,16 +63,50 @@ class BookingFormViewModel extends ChangeNotifier {
   Map<int, int> get selectedAdditionalServices => _selectedAdditionalServices;
   List<Map<String, dynamic>> get providers => _providers;
   Map<String, dynamic>? get selectedProvider => _selectedProvider;
+  double get temporaryTotalPrice => _temporaryTotalPrice;
+  bool get isCalculatingPrice => _isCalculatingPrice;
+  List<Map<String, dynamic>> get providerBusyShifts => _providerBusyShifts;
+
+  void setMainServiceId(int id) {
+    _mainServiceId = id;
+    _triggerPreviewPrice();
+  }
+
+  void _triggerPreviewPrice() {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (_mainServiceId == null) return;
+      _isCalculatingPrice = true;
+      notifyListeners();
+      
+      final bookingData = buildBookingData("dummy", "dummy", _mainServiceId!);
+      try {
+        final response = await ApiService.previewBookingPrice(bookingData);
+        if (response['success'] == true) {
+          _temporaryTotalPrice = double.parse(response['data']['totalPrice'].toString());
+        } else {
+          _temporaryTotalPrice = 0;
+        }
+      } catch (_) {
+        _temporaryTotalPrice = 0;
+      }
+      
+      _isCalculatingPrice = false;
+      notifyListeners();
+    });
+  }
 
   void setBookingType(int type) {
     _bookingType = type;
     updateEndDate();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void setStartDate(DateTime date) {
     _startDate = date;
     updateEndDate();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
@@ -75,29 +117,34 @@ class BookingFormViewModel extends ChangeNotifier {
 
   void setStartTime(TimeOfDay time) {
     _startTime = time;
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
-  void setDurationHours(int h) {
+  void setDurationHours(double h) {
     _durationHours = h;
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void toggleWeekday(String day, bool value) {
     _weekdays[day] = value;
     updateEndDate();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void setSelectedMonth(int month) {
     _selectedMonth = month;
     filterPackages();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
   void setSelectedPackage(Map<String, dynamic> pkg) {
     _selectedPackage = pkg;
     updateEndDate();
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
@@ -112,6 +159,7 @@ class BookingFormViewModel extends ChangeNotifier {
     } else {
       _selectedAdditionalServices.remove(serviceId);
     }
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
@@ -121,12 +169,34 @@ class BookingFormViewModel extends ChangeNotifier {
     } else {
       _selectedAdditionalServices[serviceId] = quantity;
     }
+    _triggerPreviewPrice();
     notifyListeners();
   }
 
-  void setSelectedProvider(Map<String, dynamic>? provider) {
+  Future<void> setSelectedProvider(Map<String, dynamic>? provider) async {
     _selectedProvider = provider;
+    _providerBusyShifts = [];
+    _triggerPreviewPrice();
     notifyListeners();
+    
+    // Load ca làm của nhân viên được chọn
+    if (provider != null) {
+      final providerId = provider['MaNguoiDung'];
+      if (providerId != null) {
+        try {
+          final response = await ApiService.getProviderBusyDates(providerId as int);
+          if (response['success'] == true) {
+            final List data = response['data'] ?? [];
+            _providerBusyShifts = data.map<Map<String, dynamic>>((item) => {
+              'date': item['date'].toString().substring(0, 10),
+              'start': item['start'].toString().substring(0, 5), // HH:mm
+              'end': item['end'].toString().substring(0, 5),     // HH:mm
+            }).toList();
+          }
+        } catch (_) {}
+        notifyListeners();
+      }
+    }
   }
 
   void setLoading(bool val) {
@@ -145,7 +215,9 @@ class BookingFormViewModel extends ChangeNotifier {
   }
 
   Future<void> loadPackages(int defaultDuration) async {
-    _durationHours = defaultDuration;
+    if (defaultDuration > 0) {
+      _durationHours = defaultDuration.toDouble();
+    }
     _isLoading = true;
     notifyListeners();
 
@@ -206,45 +278,23 @@ class BookingFormViewModel extends ChangeNotifier {
   }
 
   void updateEndDate() {
-    if (_bookingType == 1 || _selectedPackage == null) {
+    if (_bookingType == 1 || (_selectedPackage == null && _selectedMonth == null)) {
       _endDate = _startDate;
       return;
     }
 
-    final int targetSessions = _selectedPackage!['SoBuoi'] ?? 1;
-    final selectedDays = _weekdays.entries
-        .where((e) => e.value)
-        .map((e) => e.key)
-        .toList();
-
-    if (selectedDays.isEmpty) {
-      final int months = _selectedPackage!['SoThang'] ?? 1;
-      final int totalDays = months * 30;
-      final int interval = (totalDays / targetSessions).round().clamp(1, 30);
-      _endDate = _startDate.add(Duration(days: (targetSessions - 1) * interval));
-      return;
+    int months = 1;
+    if (_selectedPackage != null) {
+      months = _selectedPackage!['SoThang'] ?? 1;
+    } else if (_selectedMonth != null) {
+      months = _selectedMonth!;
     }
-
-    DateTime currentDate = _startDate;
-    int sessionCount = 0;
-
-    String getDayVN(int weekday) {
-      if (weekday == 7) return 'CN';
-      return (weekday + 1).toString();
-    }
-
-    while (sessionCount < targetSessions) {
-      final dayVN = getDayVN(currentDate.weekday);
-      if (selectedDays.contains(dayVN)) {
-        sessionCount++;
-        if (sessionCount == targetSessions) {
-          break;
-        }
-      }
-      currentDate = currentDate.add(const Duration(days: 1));
-    }
-
-    _endDate = currentDate;
+    
+    _endDate = DateTime(
+      _startDate.year,
+      _startDate.month + months,
+      _startDate.day,
+    );
   }
 
   String _formatTimeOfDay(TimeOfDay time) {
@@ -253,11 +303,20 @@ class BookingFormViewModel extends ChangeNotifier {
     return '$hour:$minute:00';
   }
 
-  String _calculateEndTime(TimeOfDay start, int durationHours) {
-    int endHour = start.hour + durationHours;
-    int endMinute = start.minute;
+  String _calculateEndTime(TimeOfDay start, double durationHours) {
+    int hoursToAdd = durationHours.floor();
+    int minutesToAdd = ((durationHours - hoursToAdd) * 60).round();
+    
+    int endMinute = start.minute + minutesToAdd;
+    int endHour = start.hour + hoursToAdd;
+    
+    if (endMinute >= 60) {
+      endMinute -= 60;
+      endHour += 1;
+    }
+    
     if (endHour >= 24) {
-      endHour = endHour - 24;
+      endHour -= 24;
     }
     final String hour = endHour.toString().padLeft(2, '0');
     final String minute = endMinute.toString().padLeft(2, '0');

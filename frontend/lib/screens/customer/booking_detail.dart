@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../viewmodels/customer/booking_detail_viewmodel.dart';
+import '../../services/api_service.dart';
+import '../../models/booking_model.dart';
+import '../../widgets/provider_calendar_dialog.dart';
 import 'payment_screen.dart';
 
 class BookingDetailScreen extends StatefulWidget {
@@ -262,6 +265,25 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     return '$h:$m:00';
   }
 
+  List<Map<String, dynamic>> _getMappedShifts(List<CaLamViecModel> allOtherShifts) {
+    List<Map<String, dynamic>> mappedShifts = [];
+    for (var s in allOtherShifts) {
+      int status = s.trangThaiDonHang;
+      if (status == 0 || status == 1 || status == 3) {
+        String dateStr = s.ngayLamViec;
+        if (dateStr.contains('T')) dateStr = dateStr.split('T')[0];
+        
+        mappedShifts.add({
+          'date': dateStr,
+          'start': s.gioBatDau.substring(0, 5),
+          'end': s.gioKetThuc.substring(0, 5),
+        });
+      }
+    }
+    return mappedShifts;
+  }
+
+
   Future<void> _handleRespondReschedule(int requestId, bool dongY) async {
     final actionText = dongY ? 'đồng ý' : 'từ chối';
     final confirm = await showDialog<bool>(
@@ -309,48 +331,170 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     }
   }
   Future<void> _showRescheduleDialog(dynamic shift) async {
-    DateTime selectedDate = DateTime.tryParse(shift.ngayLamViec) ?? DateTime.now();
-    TimeOfDay startTime = _parseTimeOfDay(shift.gioBatDau);
+    DateTime oldDate = DateTime.tryParse(shift.ngayLamViec) ?? DateTime.now();
+    TimeOfDay oldStartTime = _parseTimeOfDay(shift.gioBatDau);
+    TimeOfDay oldEndTime = _parseTimeOfDay(shift.gioKetThuc);
+    
+    DateTime selectedDate = oldDate;
+    TimeOfDay startTime = oldStartTime;
     final reasonController = TextEditingController();
 
-    final confirmed = await showDialog<bool>(
+    int durationMins = (oldEndTime.hour - oldStartTime.hour) * 60 + (oldEndTime.minute - oldStartTime.minute);
+    bool hasConflict = false;
+    List<CaLamViecModel> allOtherShifts = [];
+    bool isFetching = true;
+
+    void _checkConflict() {
+      if (isFetching) return;
+      hasConflict = false;
+      int newStartMins = startTime.hour * 60 + startTime.minute;
+      int newEndMins = newStartMins + durationMins;
+      String newDateStr = _formatDate(selectedDate);
+
+      for (var s in allOtherShifts) {
+        int status = s.trangThaiDonHang;
+        if (status == 0 || status == 1 || status == 3) {
+          String otherDateStr = s.ngayLamViec;
+          if (otherDateStr.startsWith(newDateStr)) {
+             TimeOfDay otherStart = _parseTimeOfDay(s.gioBatDau);
+             TimeOfDay otherEnd = _parseTimeOfDay(s.gioKetThuc);
+             int otherStartMins = otherStart.hour * 60 + otherStart.minute;
+             int otherEndMins = otherEnd.hour * 60 + otherEnd.minute;
+             
+             if (newStartMins < otherEndMins && otherStartMins < newEndMins) {
+               hasConflict = true;
+               break;
+             }
+          }
+        }
+      }
+    }
+
+    ApiService.getBookings().then((res) {
+      if (res['success'] == true && res['data'] != null) {
+        final List list = res['data'];
+        for (var b in list) {
+          final bModel = BookingModel.fromJson(b);
+          for (var s in bModel.caLamViecs ?? []) {
+            if (s.maCaLam != shift.maCaLam) {
+               allOtherShifts.add(s);
+            }
+          }
+        }
+      }
+      isFetching = false;
+      _checkConflict();
+    });
+
+    final confirmed = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) {
+          // Gắn callback vào _checkConflict để nó có thể trigger UI update
+          void updateConflict() {
+            setDialogState(() {
+              _checkConflict();
+            });
+          }
+
+          // Cập nhật lại logic gọi fetch
+          if (isFetching) {
+            ApiService.getBookings().then((res) {
+              if (res['success'] == true && res['data'] != null) {
+                final List list = res['data'];
+                allOtherShifts.clear();
+                for (var b in list) {
+                  final bModel = BookingModel.fromJson(b);
+                  for (var s in bModel.caLamViecs ?? []) {
+                    if (s.maCaLam != shift.maCaLam) {
+                       allOtherShifts.add(s);
+                    }
+                  }
+                }
+              }
+              isFetching = false;
+              updateConflict();
+            });
+          }
+
+          return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Đổi Ca Làm Việc', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_month_outlined),
-                title: const Text('Ngày làm mới'),
-                subtitle: Text(_formatDate(selectedDate)),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 180)),
-                  );
-                  if (picked != null) {
-                    setDialogState(() => selectedDate = picked);
-                  }
-                },
+              // Lịch cũ
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history, size: 18, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Lịch cũ: ${_formatDate(oldDate)} lúc ${oldStartTime.format(context)} - ${oldEndTime.format(context)}', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500))),
+                  ],
+                ),
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.schedule_rounded),
-                title: const Text('Giờ bắt đầu'),
-                subtitle: Text(startTime.format(context)),
-                onTap: () async {
-                  final picked = await showTimePicker(context: context, initialTime: startTime);
-                  if (picked != null) {
-                    setDialogState(() => startTime = picked);
-                  }
-                },
+              // Khung chọn lịch mới
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: hasConflict ? Colors.red : Colors.transparent, width: 1.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_month_outlined),
+                      title: const Text('Ngày làm mới'),
+                      subtitle: Text(_formatDate(selectedDate)),
+                      trailing: isFetching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : null,
+                      onTap: isFetching ? null : () async {
+                        final picked = await showDialog<DateTime>(
+                          context: context,
+                          builder: (context) => ProviderCalendarDialog(
+                            initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 180)),
+                            providerShifts: _getMappedShifts(allOtherShifts),
+                            plannedStartTime: startTime,
+                            plannedDurationHours: durationMins / 60.0,
+                          ),
+                        );
+                        if (picked != null) {
+                          selectedDate = picked;
+                          updateConflict();
+                        }
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.schedule_rounded),
+                      title: const Text('Giờ bắt đầu'),
+                      subtitle: Text(startTime.format(context)),
+                      onTap: () async {
+                        final picked = await showTimePicker(context: context, initialTime: startTime);
+                        if (picked != null) {
+                          startTime = picked;
+                          updateConflict();
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
+              if (hasConflict)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red),
+                      const SizedBox(width: 4),
+                      const Expanded(child: Text('Lịch này trùng với một ca làm việc khác của bạn.', style: TextStyle(color: Colors.red, fontSize: 12))),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -381,21 +525,44 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context, null),
               child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.pop(context, true);
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Ủy quyền hệ thống'),
+                    content: const Text('Nếu nhân viên từ chối đổi ca thì bạn có đồng ý ủy quyền cho hệ thống chọn nhân viên khác không?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Từ chối', style: TextStyle(color: Colors.grey)),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF8225)),
+                        child: const Text('Đồng ý', style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm != null) {
+                  Navigator.pop(context, {'confirmed': true, 'uyQuyen': confirm});
+                }
               },
               child: const Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
             ),
           ],
-        ),
-      ),
+        );
+      },
+    ),
     );
+    if (confirmed == null || confirmed['confirmed'] != true) return;
 
-    if (confirmed != true) return;
+    bool isUyQuyen = confirmed['uyQuyen'] == true;
 
     final response = await _viewModel.rescheduleShift(
       shift.maCaLam,

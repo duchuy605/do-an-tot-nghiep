@@ -22,6 +22,7 @@ const { success, error } = require('../utils/phan_hoi');
 const { createBookingSchema } = require('../validators/booking.validator');
 const { createReviewSchema, createComplaintSchema, rescheduleShiftSchema } = require('../validators/others.validator');
 const oCamManager = require('../sockets/o_cam_manager');
+const { checkAndExecutePayoutsForProvider } = require('../utils/payout_helper');
 
 class CustomerController {
   constructor() {
@@ -41,6 +42,7 @@ class CustomerController {
     this.rescheduleShift = this.rescheduleShift.bind(this);
     this.respondRescheduleShift = this.respondRescheduleShift.bind(this);
     this.changeProvider = this.changeProvider.bind(this);
+    this.getProviderBusyDates = this.getProviderBusyDates.bind(this);
   }
 
   // Hàm tiện ích hỗ trợ tính giá chi tiết buổi làm
@@ -73,36 +75,36 @@ class CustomerController {
       throw new Error('Giờ kết thúc phải sau giờ bắt đầu');
     }
 
+    const detailedServices = serviceDetails.map(item => {
+      const hours = item.isMain ? duration : 1;
+      const totalServicePrice = parseFloat(item.service.DonGia) * item.quantity * hours;
+      return {
+        serviceName: item.service.TenDichVu,
+        hours: hours,
+        price: totalServicePrice,
+        isMain: item.isMain
+      };
+    });
+
     // 3. Tạo danh sách các ngày làm việc thực tế
     const start = new Date(NgayBatDau);
     const dates = [];
 
     if (bookingData.LoaiDatLich === 2 && (!ThuTrongTuan || ThuTrongTuan.trim() === '')) {
-      // Nếu đặt lịch định kỳ nhưng không chọn các thứ trong tuần -> chia đều số buổi cho gói tháng đã chọn
-      const packageInfo = MaLoaiGoi ? await LoaiGoi.findByPk(MaLoaiGoi) : null;
-      const totalSessions = packageInfo ? packageInfo.SoBuoi : 8; // Mặc định 8 buổi
-      const totalMonths = packageInfo ? packageInfo.SoThang : 1;
-      const totalDays = totalMonths * 30;
-      const interval = Math.max(1, Math.round(totalDays / totalSessions));
+      throw new Error('Vui lòng chọn ít nhất một ngày trong tuần để đặt lịch định kỳ');
+    }
 
-      let currentDate = new Date(start);
-      for (let i = 0; i < totalSessions; i++) {
-        dates.push(currentDate.toISOString().split('T')[0]);
-        currentDate.setDate(currentDate.getDate() + interval);
-      }
-    } else {
-      const end = new Date(NgayKetThuc);
-      const daysFilter = ThuTrongTuan ? ThuTrongTuan.split(',').map(s => s.trim().toUpperCase()) : [];
+    const end = bookingData.LoaiDatLich === 2 ? new Date(NgayKetThuc) : new Date(start);
+    const daysFilter = ThuTrongTuan ? ThuTrongTuan.split(',').map(s => s.trim().toUpperCase()) : [];
 
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
-        const dayVN = getDayOfWeekVN(dateStr);
-        
-        if (daysFilter.length > 0 && !daysFilter.includes(dayVN)) {
-          continue;
-        }
-        dates.push(dateStr);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      const dayVN = getDayOfWeekVN(dateStr);
+      
+      if (bookingData.LoaiDatLich === 2 && daysFilter.length > 0 && !daysFilter.includes(dayVN)) {
+        continue;
       }
+      dates.push(dateStr);
     }
 
     if (dates.length === 0) {
@@ -196,6 +198,7 @@ class CustomerController {
     return {
       totalBookingPrice,
       sessionDetails,
+      detailedServices,
       baseRatePerHour: mainServiceRate + additionalServiceRate,
       duration,
       totalSessions: dates.length,
@@ -217,6 +220,7 @@ class CustomerController {
         totalPrice: calculation.totalBookingPrice,
         baseRatePerHour: calculation.baseRatePerHour,
         duration: calculation.duration,
+        detailedServices: calculation.detailedServices,
         totalSessions: calculation.totalSessions,
         packageDiscountPercent: calculation.packageDiscountPercent,
         providerSurchargePercent: calculation.providerSurchargePercent,
@@ -287,6 +291,35 @@ class CustomerController {
         return error(res, 'Không tìm thấy thông tin nhân viên này', 404);
       }
       return success(res, provider, 'Lấy chi tiết nhân viên thành công');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getProviderBusyDates(req, res, next) {
+    try {
+      const providerId = req.params.id;
+      const shifts = await CaLamViec.findAll({
+        where: {
+          MaNhanVien: providerId,
+          TrangThaiDonHang: { [Op.notIn]: [3] } // Không lấy ca đã hủy
+        },
+        attributes: ['NgayLamViec', 'GioBatDau', 'GioKetThuc'],
+        order: [['NgayLamViec', 'ASC']]
+      });
+
+      const busyDates = shifts.map(s => {
+        // Đảm bảo date dạng 'YYYY-MM-DD'
+        const d = s.NgayLamViec instanceof Date
+          ? s.NgayLamViec.toISOString().substring(0, 10)
+          : String(s.NgayLamViec).substring(0, 10);
+        // Đảm bảo time dạng 'HH:mm' (cắt bỏ giây nếu có)
+        const start = String(s.GioBatDau || '00:00').substring(0, 5);
+        const end   = String(s.GioKetThuc || '00:00').substring(0, 5);
+        return { date: d, start, end };
+      });
+
+      return success(res, busyDates, 'Lấy lịch bận của nhân viên thành công');
     } catch (err) {
       next(err);
     }
@@ -1062,6 +1095,12 @@ class CustomerController {
   async getWallet(req, res, next) {
     try {
       const customerId = req.user.MaNguoiDung;
+      
+      // Nếu là nhân viên, tự động đối soát và giải ngân các ca làm đủ điều kiện trước khi lấy ví
+      if (req.user.VaiTro === 2) {
+        await checkAndExecutePayoutsForProvider(customerId);
+      }
+
       const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
         return error(res, 'Không tìm thấy ví của người dùng', 404);
@@ -1075,6 +1114,12 @@ class CustomerController {
   async getWalletHistory(req, res, next) {
     try {
       const customerId = req.user.MaNguoiDung;
+
+      // Tương tự, nếu là nhân viên, đối soát trước khi lấy lịch sử giao dịch
+      if (req.user.VaiTro === 2) {
+        await checkAndExecutePayoutsForProvider(customerId);
+      }
+
       const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
         return error(res, 'Không tìm thấy ví của người dùng', 404);

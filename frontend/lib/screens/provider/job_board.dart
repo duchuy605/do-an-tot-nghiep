@@ -96,7 +96,7 @@ class JobBoardScreenState extends State<JobBoardScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Nhận Tất Cả', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
+            child: const Text('Nhận việc', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
           ),
         ],
       ),
@@ -496,7 +496,7 @@ class JobBoardScreenState extends State<JobBoardScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 1,
                     ),
-                    child: const Text('NHẬN TẤT CẢ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    child: const Text('NHẬN VIỆC', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
                 ],
               ),

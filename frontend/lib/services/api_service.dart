@@ -8,7 +8,7 @@ class ApiService {
   // Cấu hình URL cơ sở của backend.
   // Khi chạy trên thiết bị Android Emulator: dùng 'http://10.0.2.2:3000/api'
   // Khi chạy trên Windows/Web/iOS Emulator: dùng 'http://localhost:3000/api'
-  static String baseUrl = 'http://10.0.2.2:3000/api';
+  static String baseUrl = 'http://192.168.11.0:3000/api';
 
   /// Lấy token JWT đã lưu trong bộ nhớ cục bộ
   static Future<String?> getToken() async {
@@ -205,6 +205,16 @@ class ApiService {
   static Future<Map<String, dynamic>> getProviders() async {
     final response = await http.get(
       Uri.parse('$baseUrl/providers'),
+      headers: await _headers(),
+    );
+    return jsonDecode(response.body);
+  }
+
+  /// Lấy danh sách ngày bận của nhân viên (đã có lịch)
+  /// GET /api/providers/:id/busy-dates
+  static Future<Map<String, dynamic>> getProviderBusyDates(int providerId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/providers/$providerId/busy-dates'),
       headers: await _headers(),
     );
     return jsonDecode(response.body);

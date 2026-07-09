@@ -59,4 +59,14 @@ router.get('/resolution-types', adminController.getResolutionTypes);
 // Báo cáo thống kê Dashboard Dashboard
 router.get('/dashboard', adminController.getDashboard);
 
+// [DEV] Kích hoạt thanh toán tự động thủ công (để test)
+router.post('/payout/trigger', async (req, res, next) => {
+  try {
+    const result = await adminController.executeAutomaticPayouts();
+    return res.json({ success: result.success, data: result.data, message: result.message });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
