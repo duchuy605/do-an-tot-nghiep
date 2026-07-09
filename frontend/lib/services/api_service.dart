@@ -8,7 +8,7 @@ class ApiService {
   // Cấu hình URL cơ sở của backend.
   // Khi chạy trên thiết bị Android Emulator: dùng 'http://10.0.2.2:3000/api'
   // Khi chạy trên Windows/Web/iOS Emulator: dùng 'http://localhost:3000/api'
-  static String baseUrl = 'http://192.168.11.0:3000/api';
+  static String baseUrl = 'http://10.0.2.2:3000/api';
 
   /// Lấy token JWT đã lưu trong bộ nhớ cục bộ
   static Future<String?> getToken() async {
