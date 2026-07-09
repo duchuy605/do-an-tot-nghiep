@@ -41,22 +41,23 @@ class AuthController {
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(data.MatKhau, saltRounds);
 
-      // Tạo mới người dùng
+      // Tạo mới người dùng với trạng thái hoạt động mặc định
       const user = await NguoiDung.create({
         ...data,
         MatKhau: hashedPassword,
-        TrangThaiTaiKhoan: 1 // Default active
+        TrangThaiTaiKhoan: 1 // Mặc định là đang hoạt động
       });
 
-      // Khởi tạo ví tiền nội bộ cho người dùng
+      // Khởi tạo ví tiền nội bộ cho người dùng để phục vụ thanh toán
       await ViTien.create({
         MaNguoiDung: user.MaNguoiDung,
         SoDu: 0,
-        LoaiVi: user.VaiTro, // 1: Customer, 2: Provider
+        LoaiVi: user.VaiTro, // 1: Khách hàng, 2: Nhân viên
         TrangThai: true
       });
 
-      // Nếu là Nhân viên (2), tự động khởi tạo Hồ sơ nhân viên
+      // Nếu người dùng đăng ký với vai trò là Nhân viên (VaiTro = 2), tự động khởi tạo Hồ sơ nhân viên.
+      // Trạng thái phê duyệt ban đầu sẽ là chờ duyệt (0). Admin cần kiểm tra hồ sơ và phê duyệt trước khi nhân viên có thể bắt đầu nhận việc.
       if (user.VaiTro === 2) {
         await HoSoNhanVien.create({
           MaNhanVien: user.MaNguoiDung,
@@ -64,7 +65,7 @@ class AuthController {
           SoGioLamViec: 0,
           TongDanhGia: 0,
           SoSaoTrungBinh: 5.0,
-          TrangThaiDuyet: 0, // Pending Admin approval
+          TrangThaiDuyet: 0, // Chờ Admin phê duyệt
           TrangThaiHoatDong: false
         });
       }
@@ -100,7 +101,8 @@ class AuthController {
         return error(res, 'Email hoặc mật khẩu không chính xác', 400);
       }
 
-      // Khởi tạo mã Token JWT
+      // Khởi tạo mã Token JWT (JSON Web Token) để xác thực các yêu cầu sau này của người dùng.
+      // Token chứa thông tin cơ bản: MaNguoiDung, VaiTro, Email, giúp định danh người dùng trên các API yêu cầu đăng nhập.
       const token = generateToken({
         MaNguoiDung: user.MaNguoiDung,
         VaiTro: user.VaiTro,
@@ -173,10 +175,10 @@ class AuthController {
 
       otpStore.set(req.body.Email, { code: resetCode, expiresAt });
 
-      // Gửi mã OTP qua email
+      // Gửi mã OTP qua email cho người dùng để xác nhận việc đặt lại mật khẩu
       const emailSent = await guiEmailOTP(req.body.Email, resetCode);
       if (!emailSent) {
-        console.log(`[OTP BACKUP] Mã OTP cho ${req.body.Email}: ${resetCode}`);
+        console.log(`[SAO LƯU OTP] Mã OTP cho ${req.body.Email}: ${resetCode}`);
       }
 
       return success(

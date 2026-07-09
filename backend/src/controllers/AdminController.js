@@ -673,6 +673,20 @@ class AdminController {
     }
   }
 
+  // ============================================================
+  // POST /complaints/:id/resolve - Xử lý khiếu nại (Hoàn tiền / Phạt tiền)
+  // Giải thích logic Phạt tiền nhân viên và Hoàn tiền cho khách hàng:
+  // 1. Kiểm tra Hình thức xử lý: Nếu Admin chọn hình thức là "Hoàn tiền" (hoặc ID = 1), hệ thống sẽ tiến hành trừ tiền nhân viên và cộng tiền cho khách.
+  // 2. Tính toán mức tiền phạt:
+  //    - Số tiền đền bù (hoanTienAmount) có thể do Admin nhập tay. Nếu không nhập, hệ thống mặc định phạt 20% số tiền thù lao mà nhân viên nhận được từ ca làm đó.
+  //    - Mức phạt tối đa (providerPenalty) bị giới hạn không vượt quá thù lao thực tế nhân viên nhận được (để bảo vệ nhân viên không bị phạt lạm vào tiền túi).
+  // 3. Xử lý trừ tiền nhân viên (Phạt tiền):
+  //    - Trường hợp 1 (Đã thanh toán): Tiền đã vào ví nhân viên. Hệ thống sẽ TRỪ TIỀN trực tiếp từ ví nhân viên (ViTien của nhân viên) và CỘNG VÀO ví hệ thống. Ghi nhận lịch sử giao dịch loại 4 (Trừ tiền phạt).
+  //    - Trường hợp 2 (Chưa thanh toán): Tiền vẫn đang treo (TongTienTre). Hệ thống sẽ TRỪ BỚT số tiền chờ duyệt này (nhân viên sẽ nhận ít tiền hơn khi đối soát). Tiền thực chất vẫn đang nằm trong ví hệ thống.
+  // 4. Xử lý hoàn tiền cho khách hàng:
+  //    - Hệ thống lấy tiền từ ví hệ thống (đã được bù vào từ tiền phạt của nhân viên) để CỘNG TRẢ LẠI vào ví của khách hàng. Ghi nhận lịch sử giao dịch loại 3 (Hoàn tiền).
+  // 5. Kết thúc: Cập nhật trạng thái khiếu nại thành "Đã giải quyết" (TrangThaiXuLy = 2), tự động kích hoạt đối soát cho nhân viên (nếu đủ điều kiện), và gửi thông báo cho khách hàng qua Socket.IO.
+  // ============================================================
   async resolveComplaint(req, res, next) {
     let tx;
     try {
@@ -696,25 +710,28 @@ class AdminController {
 
       tx = await sequelize.transaction();
 
-      // Update complaint status
+      // Cập nhật trạng thái khiếu nại
       await complaint.update({
         MaNguoiXuLy: adminId,
         MaHinhThucXuLy,
-        TrangThaiXuLy: 2, // 2: Da giai quyet
+        TrangThaiXuLy: 2, // 2: Đã giải quyết
         NgayXuLy: new Date()
       }, { transaction: tx });
 
-      // Xử lý hoàn tiền bồi thường: If TenHinhThuc is "Hoàn tiền" or MaHinhThucXuLy is 1
+      // Xử lý hoàn tiền bồi thường: Nếu hình thức là "Hoàn tiền" (hoặc ID là 1)
       if (hinhThuc.TenHinhThuc.toLowerCase().includes('hoàn tiền') || hinhThuc.TenHinhThuc.toLowerCase().includes('hoan tien') || MaHinhThucXuLy === 1) {
         const caLam = await CaLamViec.findByPk(complaint.MaCaLam);
         if (caLam) {
-          const hoanTienAmount = SoTienDenBu ? parseFloat(SoTienDenBu) : parseFloat(caLam.TongTien);
+          const providerReceived = parseFloat(caLam.TongTien) - (parseFloat(caLam.TienHeThongNhan) || 0);
+          const defaultPenalty = providerReceived * 0.20; // 20% số tiền nhân viên nhận được
+          
+          const hoanTienAmount = SoTienDenBu ? parseFloat(SoTienDenBu) : defaultPenalty;
 
           if (hoanTienAmount > parseFloat(caLam.TongTien)) {
             throw new Error(`Số tiền đền bù (${hoanTienAmount}) không được vượt quá số tiền thực tế ca làm (${caLam.TongTien})`);
           }
 
-          // Fetch wallets
+          // Lấy thông tin các ví tiền liên quan
           const customerWallet = await ViTien.findOne({ where: { MaNguoiDung: complaint.MaNguoiGui } });
           const systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
           const providerWallet = await ViTien.findOne({ where: { MaNguoiDung: complaint.MaNguoiBiKhieuNai } });
@@ -723,8 +740,7 @@ class AdminController {
             let providerPenalty = 0;
 
             if (caLam.DaThanhToan) {
-              // Provider already paid, deduct directly from their wallet
-              const providerReceived = parseFloat(caLam.TongTien) - parseFloat(caLam.TienHeThongNhan);
+              // Trường hợp 1: Đã thanh toán -> Trừ tiền trực tiếp từ ví nhân viên
               providerPenalty = Math.min(hoanTienAmount, providerReceived);
               
               const newProvBalance = parseFloat(providerWallet.SoDu) - providerPenalty;
@@ -744,7 +760,7 @@ class AdminController {
                 NgayTao: new Date()
               }, { transaction: tx });
             } else if (caLam.TongTienTre !== null) {
-              // Deduct from pending payout
+              // Trường hợp 2: Chưa thanh toán -> Trừ bớt tiền đang chờ duyệt (pending payout) của nhân viên
               const currentPending = parseFloat(caLam.TongTienTre);
               providerPenalty = Math.min(hoanTienAmount, currentPending);
               const remainingPending = currentPending - providerPenalty;
@@ -771,7 +787,7 @@ class AdminController {
               NgayTao: new Date()
             }, { transaction: tx });
 
-            console.log(`[REFUND SUCCESS] Refunded ${hoanTienAmount} to customer #${complaint.MaNguoiGui} for CaLam #${caLam.MaCaLam}`);
+            console.log(`[HOÀN TIỀN THÀNH CÔNG] Đã hoàn ${hoanTienAmount} cho khách hàng #${complaint.MaNguoiGui} từ ca làm #${caLam.MaCaLam}`);
           }
         }
       }
@@ -785,7 +801,7 @@ class AdminController {
           const { checkAndExecutePayoutsForProvider } = require('../utils/payout_helper');
           await checkAndExecutePayoutsForProvider(caLam.MaNhanVien);
         } catch (payoutErr) {
-          console.error('[RESOLVE COMPLAINT PAYOUT ERROR]:', payoutErr.message);
+          console.error('[LỖI ĐỐI SOÁT KHI GIẢI QUYẾT KHIẾU NẠI]:', payoutErr.message);
         }
       }
 
@@ -798,7 +814,7 @@ class AdminController {
         ]
       });
 
-      // Gửi thông báo thời gian thực via Socket.IO
+      // Gửi thông báo thời gian thực qua Socket.IO cho khách hàng
       oCamManager.guiThongBaoNguoiDung(complaint.MaNguoiGui, {
         tieuDe: 'Khiếu nại đã được xử lý!',
         noiDung: `Khiếu nại #${complaint.MaKhieuNai} của bạn đã được Admin xử lý.`,

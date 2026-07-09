@@ -38,7 +38,7 @@ class ProviderController {
 
       const { CCCD, TrangThaiHoatDong, HoTenNguoiDung, DiaChi, SoDienThoai, GioiTinh } = req.body;
 
-      // Update user table
+      // Cập nhật bảng người dùng
       const userUpdates = {};
       if (HoTenNguoiDung) userUpdates.HoTenNguoiDung = HoTenNguoiDung;
       if (DiaChi) userUpdates.DiaChi = DiaChi;
@@ -50,7 +50,7 @@ class ProviderController {
         if (user) await user.update(userUpdates);
       }
 
-      // Update hoso table
+      // Cập nhật bảng hồ sơ
       const hosoUpdates = {};
       if (CCCD) hosoUpdates.CCCD = CCCD;
       if (TrangThaiHoatDong !== undefined) hosoUpdates.TrangThaiHoatDong = TrangThaiHoatDong;
@@ -59,7 +59,7 @@ class ProviderController {
         await hoso.update(hosoUpdates);
       }
 
-      // Get updated profile
+      // Lấy thông tin hồ sơ đã cập nhật
       const updatedProvider = await NguoiDung.findByPk(providerId, {
         attributes: { exclude: ['MatKhau'] },
         include: [{ model: HoSoNhanVien, as: 'HoSoNhanVien' }]
@@ -97,7 +97,21 @@ class ProviderController {
         ],
         order: [['NgayLamViec', 'ASC'], ['GioBatDau', 'ASC']]
       });
-      return success(res, jobs, 'Lấy danh sách công việc thành công');
+
+      // Lọc bỏ những ca làm việc trống mà nhân viên này đã bị chặn (do khách hàng đổi nhân viên)
+      const filteredJobs = jobs.filter(job => {
+        if (job.TrangThaiDonHang === 1 && job.MaNhanVien === null) {
+          if (job.LyDoHuy && job.LyDoHuy.startsWith('BLOCKED:')) {
+            const blockedIds = job.LyDoHuy.replace('BLOCKED:', '').split(',');
+            if (blockedIds.includes(providerId.toString())) {
+              return false; // Bị chặn, không hiển thị
+            }
+          }
+        }
+        return true;
+      });
+
+      return success(res, filteredJobs, 'Lấy danh sách công việc thành công');
     } catch (err) {
       next(err);
     }
@@ -143,11 +157,19 @@ class ProviderController {
         return error(res, 'Hồ sơ của bạn chưa được Admin duyệt hoặc trạng thái hoạt động đang tắt', 400);
       }
 
+      // Kiểm tra xem nhân viên này có bị khách hàng chặn không (vì đổi/từ chối trước đó)
+      if (job.LyDoHuy && job.LyDoHuy.startsWith('BLOCKED:')) {
+        const blockedIds = job.LyDoHuy.replace('BLOCKED:', '').split(',');
+        if (blockedIds.includes(providerId.toString())) {
+          return error(res, 'Bạn không thể nhận ca làm việc này vì khách hàng đã đổi hoặc từ chối bạn trước đó.', 403);
+        }
+      }
+
       // Trường hợp 1: Ca đã gán cho nhân viên này, đang chờ xác nhận (status 0)
       if (job.MaNhanVien === providerId && job.TrangThaiDonHang === 0) {
         // Nhân viên xác nhận nhận việc
       }
-      // Trường hợp 2: Ca chưa có nhân viên, đang chờ nhận từ pool (status 1)
+      // Trường hợp 2: Ca chưa có nhân viên, đang chờ nhận từ pool chung (trạng thái 1)
       else if (job.MaNhanVien === null && job.TrangThaiDonHang === 1) {
         // Nhân viên nhận từ bảng việc chung
       }
@@ -158,13 +180,24 @@ class ProviderController {
         return error(res, 'Trạng thái công việc không hợp lệ để nhận', 400);
       }
 
-      console.log('--- ACCEPT JOB DEBUG ---');
-      console.log('ProviderID:', providerId);
-      console.log('NgayLamViec:', job.NgayLamViec, typeof job.NgayLamViec);
-      console.log('GioBatDau:', job.GioBatDau, typeof job.GioBatDau);
-      console.log('GioKetThuc:', job.GioKetThuc, typeof job.GioKetThuc);
+      console.log('--- GỠ LỖI NHẬN CA LÀM ---');
+      console.log('Mã nhân viên:', providerId);
+      console.log('Ngày làm việc:', job.NgayLamViec, typeof job.NgayLamViec);
+      console.log('Giờ bắt đầu:', job.GioBatDau, typeof job.GioBatDau);
+      console.log('Giờ kết thúc:', job.GioKetThuc, typeof job.GioKetThuc);
       
-      // Kiểm tra xem nhân viên đã có ca làm việc nào trùng giờ trong ngày này chưa
+      // KIỂM TRA TRÙNG LỊCH LÀM VIỆC (QUAN TRỌNG CHO BẢO VỆ ĐỒ ÁN)
+      // Để phát hiện 2 ca làm việc có trùng thời gian hay không (overlap), ta sử dụng thuật toán kiểm tra khoảng thời gian.
+      // Giả sử:
+      // - Ca làm mới đang định nhận có thời gian từ [job.GioBatDau, job.GioKetThuc].
+      // - Ca làm cũ đã nhận (conflictingJob) có thời gian từ [GioBatDau (cũ), GioKetThuc (cũ)].
+      // Hai khoảng thời gian (A, B) và (C, D) sẽ giao nhau (trùng lịch) khi và chỉ khi: A < D VÀ B > C.
+      // Áp dụng vào truy vấn (query) CSDL:
+      // - GioBatDau của ca cũ < job.GioKetThuc (Tức là ca cũ phải bắt đầu trước khi ca mới kết thúc)
+      // - GioKetThuc của ca cũ > job.GioBatDau (Tức là ca cũ phải kết thúc sau khi ca mới đã bắt đầu)
+      // Nếu đồng thời thỏa mãn cả hai điều kiện trên trên cùng một ngày làm việc (NgayLamViec) và ca cũ 
+      // chưa bị hủy hay hoàn thành (TrangThaiDonHang đang là 0 hoặc 1), thì chắc chắn xảy ra xung đột.
+      // Chúng ta cũng dùng { [Op.ne]: job.MaCaLam } để bỏ qua chính ca làm đang xét (nếu cập nhật lại).
       const conflictingJob = await CaLamViec.findOne({
         where: {
           MaCaLam: { [Op.ne]: job.MaCaLam },
@@ -175,7 +208,7 @@ class ProviderController {
           GioKetThuc: { [Op.gt]: job.GioBatDau }
         }
       });
-      console.log('ConflictingJob found:', conflictingJob ? conflictingJob.MaCaLam : 'NONE');
+      console.log('Đã tìm thấy ca trùng lặp:', conflictingJob ? conflictingJob.MaCaLam : 'KHÔNG CÓ');
       console.log('------------------------');
       
       if (conflictingJob) {
@@ -191,7 +224,7 @@ class ProviderController {
         NgayCapNhat: new Date()
       }, { transaction: tx });
 
-      // Nếu đơn đặt lịch tổng chưa có nhân viên, gán nhân viên này làm primary
+      // Nếu đơn đặt lịch tổng chưa có nhân viên, gán nhân viên này làm nhân viên chính
       const booking = await DonDatLich.findByPk(job.MaDatLich);
       if (booking && !booking.MaNhanVien) {
         await booking.update({ MaNhanVien: providerId }, { transaction: tx });
@@ -278,13 +311,14 @@ class ProviderController {
         return error(res, 'Chỉ có thể hoàn thành ca làm việc đang ở trạng thái đã nhận', 400);
       }
 
-      // Kiểm tra ngày làm việc: chỉ cho hoàn thành khi đã đến ngày
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const ngayLam = new Date(job.NgayLamViec);
-      ngayLam.setHours(0, 0, 0, 0);
-      if (today < ngayLam) {
-        return error(res, `Chưa đến ngày làm việc (${job.NgayLamViec}). Không thể hoàn thành ca trước ngày hẹn.`, 400);
+      // Kiểm tra ngày giờ làm việc: chỉ cho hoàn thành khi đã qua thời gian kết thúc ca làm
+      const now = new Date();
+      // job.NgayLamViec có dạng 'YYYY-MM-DD', job.GioKetThuc có dạng 'HH:mm:ss' hoặc 'HH:mm'
+      const endDateTimeString = `${job.NgayLamViec}T${job.GioKetThuc}`;
+      const endDateTime = new Date(endDateTimeString);
+
+      if (now < endDateTime) {
+        return error(res, `Chưa đến thời gian kết thúc ca làm (${job.GioKetThuc} ngày ${job.NgayLamViec}). Không thể hoàn thành công việc sớm.`, 400);
       }
 
       const splitProvider = parseInt(process.env.REVENUE_SPLIT_PROVIDER || 80);
@@ -296,8 +330,7 @@ class ProviderController {
 
       tx = await sequelize.transaction();
 
-      // 1. Cập nhật trạng thái ca làm việc → Hoàn thành (2) và ghi nhận số tiền pending
-      const now = new Date();
+      // 1. Cập nhật trạng thái ca làm việc → Hoàn thành (2) và ghi nhận số tiền chờ thanh toán
       await job.update({
         TrangThaiDonHang: 2, // 2: Hoàn thành
         TienNhanVienNhan: tienNhanVien,
@@ -315,7 +348,7 @@ class ProviderController {
       if (systemWallet && adminUser) {
         const adminWallet = await ViTien.findOne({ where: { MaNguoiDung: adminUser.MaNguoiDung } });
         if (adminWallet) {
-          // Trừ 20% hoa hồng khỏi ví Escrow
+          // Trừ 20% hoa hồng khỏi ví Tạm giữ hệ thống
           const newSysBalance = parseFloat(systemWallet.SoDu) - tienSystem;
           await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
 
@@ -361,7 +394,7 @@ class ProviderController {
 
       const completedJob = await CaLamViec.findByPk(caLamId);
 
-      // 5. Gửi thông báo thời gian thực via Socket.IO
+      // 5. Gửi thông báo thời gian thực qua Socket.IO
       oCamManager.guiThongBaoNguoiDung(job.MaKhachHang, {
         tieuDe: 'Ca làm việc đã hoàn thành!',
         noiDung: `Nhân viên ${req.user.HoTenNguoiDung} đã hoàn thành ca làm việc ngày ${job.NgayLamViec} của bạn. Vui lòng đánh giá.`,

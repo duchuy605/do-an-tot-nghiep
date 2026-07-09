@@ -85,6 +85,15 @@ class BookingDetailViewModel extends ChangeNotifier {
       return {'success': false, 'message': 'Lỗi kết nối máy chủ.'};
     }
   }
+  /// Gửi yêu cầu đổi lịch làm việc cho một ca làm cụ thể.
+  /// Trong đồ án, luồng đổi lịch được thiết kế để đảm bảo tính linh hoạt cho người dùng (khách hàng hoặc nhân viên)
+  /// khi có sự cố phát sinh không thể thực hiện đúng lịch đã hẹn.
+  /// Logic:
+  /// 1. Nhận thông tin ca làm (caLamId), ngày giờ mới (ngayLamViec, gioBatDau), và lý do (lyDo).
+  /// 2. Gửi request lên server (thông qua ApiService.rescheduleShift).
+  /// 3. Server sẽ kiểm tra tính hợp lệ của thời gian mới (không nằm trong quá khứ, không trùng lịch, v.v.).
+  /// 4. Nếu hợp lệ, hệ thống sẽ tạo một yêu cầu đổi lịch và gửi thông báo cho phía đối tác (nhân viên/khách hàng) để họ quyết định.
+  /// 5. Cập nhật lại UI thông qua việc quản lý trạng thái (_isLoading) và trả về kết quả response từ API.
   Future<Map<String, dynamic>> rescheduleShift(
     int caLamId, {
     required String ngayLamViec,
@@ -112,7 +121,16 @@ class BookingDetailViewModel extends ChangeNotifier {
     }
   }
 
-  /// Đồng ý hoặc từ chối yêu cầu đổi lịch từ nhân viên
+  /// Phản hồi (Đồng ý hoặc Từ chối) yêu cầu đổi lịch từ phía đối tác (nhân viên).
+  /// Giải thích chi tiết cho hội đồng bảo vệ đồ án:
+  /// - Tính năng này giúp hoàn thiện quy trình thương lượng (negotiation) giữa khách hàng và nhân viên, giải quyết bài toán thực tế khi lịch trình có phát sinh.
+  /// - Tham số `requestId`: Khóa chính của yêu cầu đổi lịch để xác định chính xác giao dịch.
+  /// - Tham số `dongY` (boolean): true nếu người dùng chấp nhận thời gian mới, false nếu từ chối.
+  /// - Luồng xử lý từ Client đến Server:
+  ///   + Client gửi quyết định (dongY) lên hệ thống API.
+  ///   + Server kiểm tra quyền truy cập. Nếu dongY = true, hệ thống tự động cập nhật thời gian ca làm và lưu lịch sử thay đổi.
+  ///   + Nếu dongY = false, hệ thống hủy yêu cầu đổi lịch và ca làm giữ nguyên thời gian cũ (hoặc có thể hủy luôn ca làm tùy logic nghiệp vụ).
+  /// - Hàm này áp dụng quản lý trạng thái loading để chặn các tương tác rác (spam clicks) trong lúc chờ phản hồi từ Server.
   Future<Map<String, dynamic>> respondRescheduleRequest(int requestId, bool dongY) async {
     _isLoading = true;
     notifyListeners();

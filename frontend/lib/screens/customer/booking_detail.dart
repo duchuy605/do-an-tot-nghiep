@@ -439,7 +439,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               // Khung chọn lịch mới
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: hasConflict ? Colors.red : Colors.transparent, width: 1.5),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -525,11 +524,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, null),
-              child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Đóng', style: TextStyle(color: Color(0xFFFF8225))),
             ),
             TextButton(
-              onPressed: () async {
+              onPressed: hasConflict ? null : () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -550,10 +549,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 );
 
                 if (confirm != null) {
+                  if (!context.mounted) return;
                   Navigator.pop(context, {'confirmed': true, 'uyQuyen': confirm});
                 }
               },
-              child: const Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
+              child: Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: hasConflict ? Colors.grey : const Color(0xFFFF8225))),
             ),
           ],
         );
