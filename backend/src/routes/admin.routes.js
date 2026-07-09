@@ -10,6 +10,7 @@ router.use(authenticate, authorize('ADMIN'));
 // Quản lý Người dùng
 router.get('/users', adminController.getUsers);
 router.get('/users/:id', adminController.getUserDetail);
+router.get('/users/:id/stats', adminController.getUserStats);
 router.put('/users/:id', adminController.updateUser);
 router.put('/users/:id/lock', adminController.lockUser);
 router.put('/users/:id/unlock', adminController.unlockUser);
@@ -58,6 +59,8 @@ router.get('/resolution-types', adminController.getResolutionTypes);
 
 // Báo cáo thống kê Dashboard Dashboard
 router.get('/dashboard', adminController.getDashboard);
+router.get('/system-earnings', adminController.getSystemEarningsHistory);
+router.get('/gross-revenue', adminController.getGrossRevenueHistory);
 
 // [DEV] Kích hoạt thanh toán tự động thủ công (để test)
 router.post('/payout/trigger', async (req, res, next) => {

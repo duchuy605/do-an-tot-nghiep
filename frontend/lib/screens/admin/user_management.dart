@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../viewmodels/admin/user_management_viewmodel.dart';
+import '../../services/api_service.dart';
 
 class UserManagementScreen extends StatefulWidget {
-  const UserManagementScreen({super.key});
+  final int? initialRoleFilter;
+  const UserManagementScreen({super.key, this.initialRoleFilter});
 
   @override
   State<UserManagementScreen> createState() => _UserManagementScreenState();
@@ -41,6 +43,73 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  Future<void> _showUserStatsDialog(int id, String name, int role) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final response = await ApiService.getUserStats(id);
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      if (response['success'] == true) {
+        final stats = response['data'] ?? {};
+        
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text('Thống kê: $name'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: role == 1 
+                ? [
+                    Text('Tổng tiền nạp: ${_formatPrice(stats['totalDeposited'] ?? 0)}'),
+                    const SizedBox(height: 8),
+                    Text('Tiền thanh toán ca làm: ${_formatPrice(stats['totalPaid'] ?? 0)}'),
+                    const SizedBox(height: 8),
+                    Text('Số ca làm đã đặt: ${stats['totalShifts'] ?? 0}'),
+                  ]
+                : [
+                    Text('Số ca đã nhận: ${stats['totalAccepted'] ?? 0}'),
+                    const SizedBox(height: 8),
+                    Text('Số ca đã hoàn thành: ${stats['totalCompleted'] ?? 0}'),
+                    const SizedBox(height: 8),
+                    Text('Tổng lương nhận được: ${_formatPrice(stats['totalEarned'] ?? 0)}'),
+                  ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Đóng'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? 'Lỗi tải dữ liệu')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Lỗi kết nối máy chủ')),
+        );
+      }
+    }
+  }
+
+  String _formatPrice(dynamic price) {
+    if (price == null) return '0 đ';
+    final formatter = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return '${price.toString().replaceAllMapped(formatter, (Match m) => '${m[1]}.')} đ';
+  }
+
   String _getRoleLabel(int role) {
     if (role == 3) return 'Admin';
     if (role == 2) return 'Nhân viên';
@@ -53,20 +122,33 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7FA),
+      appBar: widget.initialRoleFilter != null
+          ? AppBar(
+              title: Text(widget.initialRoleFilter == 1 ? 'Danh sách khách hàng' : 'Danh sách nhân viên'),
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black87,
+              elevation: 0,
+            )
+          : null,
       body: ListenableBuilder(
         listenable: _viewModel,
         builder: (context, _) {
           if (_viewModel.isLoading) {
             return const Center(child: CircularProgressIndicator(color: orangeColor));
           }
+
+          final filteredUsers = widget.initialRoleFilter != null 
+              ? _viewModel.users.where((u) => u['VaiTro'] == widget.initialRoleFilter).toList()
+              : _viewModel.users;
+
           return RefreshIndicator(
             onRefresh: _viewModel.loadUsers,
             color: orangeColor,
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: _viewModel.users.length,
+              itemCount: filteredUsers.length,
               itemBuilder: (context, index) {
-                final user = _viewModel.users[index];
+                final user = filteredUsers[index];
                 final int id = user['MaNguoiDung'] ?? 0;
                 final String name = user['HoTenNguoiDung'] ?? '';
                 final String email = user['Email'] ?? '';
@@ -77,9 +159,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                    child: Row(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _showUserStatsDialog(id, name, role),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                      child: Row(
                       children: [
                         CircleAvatar(
                           backgroundColor: role == 2 ? const Color(0xFFFFF2E6) : Colors.blue.shade50,
@@ -149,6 +234,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ),
                       ],
                     ),
+                  ),
                   ),
                 );
               },

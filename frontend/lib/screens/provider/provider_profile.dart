@@ -150,27 +150,27 @@ class ProviderProfileScreenState extends State<ProviderProfileScreen> {
           ),
           TextButton(
             onPressed: () async {
-              if (_oldPassController.text.isEmpty ||
-                  _newPassController.text.isEmpty)
-                return;
-              Navigator.pop(context);
+              if (_oldPassController.text.isEmpty || _newPassController.text.isEmpty) return;
               final response = await _viewModel.changePassword(
                 _oldPassController.text,
                 _newPassController.text,
               );
               if (!mounted) return;
               if (response['success'] == true) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Đổi mật khẩu thành công!'),
-                    backgroundColor: Colors.green,
+                Navigator.pop(context); // Close change password dialog
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Thành công', style: TextStyle(color: Colors.green)),
+                    content: const Text('Đổi mật khẩu thành công!'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
+                    ],
                   ),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(response['message'] ?? 'Lỗi đổi mật khẩu.'),
-                  ),
+                  SnackBar(content: Text(response['message'] ?? 'Lỗi đổi mật khẩu.'), backgroundColor: Colors.red),
                 );
               }
             },

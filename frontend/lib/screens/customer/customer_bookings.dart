@@ -611,6 +611,24 @@ class CustomerBookingsScreenState extends State<CustomerBookingsScreen> with Sin
           final completedBookings = _viewModel.bookings.where((b) => b.trangThai == 3).toList();
           final canceledBookings = _viewModel.bookings.where((b) => b.trangThai == 0).toList();
 
+          activeBookings.sort((a, b) {
+            int dateCmp = a.ngayBatDau.compareTo(b.ngayBatDau);
+            if (dateCmp != 0) return dateCmp;
+            return a.gioBatDau.compareTo(b.gioBatDau);
+          });
+
+          completedBookings.sort((a, b) {
+            int dateCmp = b.ngayBatDau.compareTo(a.ngayBatDau);
+            if (dateCmp != 0) return dateCmp;
+            return b.gioBatDau.compareTo(a.gioBatDau);
+          });
+
+          canceledBookings.sort((a, b) {
+            int dateCmp = b.ngayBatDau.compareTo(a.ngayBatDau);
+            if (dateCmp != 0) return dateCmp;
+            return b.gioBatDau.compareTo(a.gioBatDau);
+          });
+
           return TabBarView(
             controller: _tabController,
             children: [

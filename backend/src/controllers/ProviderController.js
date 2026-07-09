@@ -170,7 +170,7 @@ class ProviderController {
           MaCaLam: { [Op.ne]: job.MaCaLam },
           MaNhanVien: providerId,
           NgayLamViec: job.NgayLamViec,
-          TrangThaiDonHang: { [Op.in]: [0, 1, 2] },
+          TrangThaiDonHang: { [Op.in]: [0, 1] },
           GioBatDau: { [Op.lt]: job.GioKetThuc },
           GioKetThuc: { [Op.gt]: job.GioBatDau }
         }

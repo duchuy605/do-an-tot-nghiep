@@ -54,6 +54,53 @@ class AdminController {
     }
   }
 
+  async getUserStats(req, res, next) {
+    try {
+      const user = await NguoiDung.findByPk(req.params.id);
+      if (!user) {
+        return error(res, 'Người dùng không tồn tại', 404);
+      }
+
+      const stats = {};
+      if (user.VaiTro === 1) { // Khách Hàng
+        const wallet = await ViTien.findOne({ where: { MaNguoiDung: user.MaNguoiDung } });
+        let totalDeposited = 0;
+        if (wallet) {
+          totalDeposited = await LichSuViTien.sum('SoTien', {
+            where: { MaViDich: wallet.MaViTien, LoaiGiaoDich: 1 }
+          }) || 0;
+        }
+
+        const totalShifts = await CaLamViec.count({ where: { MaKhachHang: user.MaNguoiDung } });
+
+        const totalPaid = await CaLamViec.sum('TongTien', {
+          where: { MaKhachHang: user.MaNguoiDung, TrangThaiDonHang: { [require('sequelize').Op.not]: 3 } }
+        }) || 0;
+
+        stats.totalDeposited = totalDeposited;
+        stats.totalShifts = totalShifts;
+        stats.totalPaid = totalPaid;
+        
+      } else if (user.VaiTro === 2) { // Nhân Viên
+        const totalAccepted = await CaLamViec.count({ where: { MaNhanVien: user.MaNguoiDung } });
+        
+        const totalCompleted = await CaLamViec.count({ where: { MaNhanVien: user.MaNguoiDung, TrangThaiDonHang: 2 } });
+        
+        const totalEarned = await CaLamViec.sum('TienNhanVienNhan', {
+          where: { MaNhanVien: user.MaNguoiDung, TrangThaiDonHang: 2 }
+        }) || 0;
+
+        stats.totalAccepted = totalAccepted;
+        stats.totalCompleted = totalCompleted;
+        stats.totalEarned = totalEarned;
+      }
+
+      return success(res, stats, 'Lấy thống kê người dùng thành công');
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async updateUser(req, res, next) {
     try {
       const user = await NguoiDung.findByPk(req.params.id);
@@ -414,8 +461,88 @@ class AdminController {
       
       const completedBookings = await DonDatLich.count({ where: { TrangThai: 2 } });
       const pendingBookings = await CaLamViec.count({ where: { TrangThaiDonHang: 1, MaNhanVien: null } });
-      const finishedCaLam = await CaLamViec.findAll({ where: { TrangThaiDonHang: 2 } });
       
+      // Thống kê ca làm việc (theo trạng thái)
+      const shiftCounts = await CaLamViec.findAll({
+        attributes: ['TrangThaiDonHang', [sequelize.fn('COUNT', sequelize.col('MaCaLam')), 'count']],
+        group: ['TrangThaiDonHang']
+      });
+      
+      let shiftStats = {
+        pending: 0,
+        accepted: 0,
+        completed: 0,
+        cancelled: 0
+      };
+      
+      shiftCounts.forEach(item => {
+        const status = item.TrangThaiDonHang;
+        const count = parseInt(item.get('count'), 10);
+        if (status === 0) shiftStats.pending = count;
+        if (status === 1) shiftStats.accepted = count;
+        if (status === 2) shiftStats.completed = count;
+        if (status === 3) shiftStats.cancelled = count;
+      });
+
+      // Thống kê ca làm việc theo tuần (4 tuần gần nhất)
+      const fourWeeksAgo = new Date();
+      fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+      
+      const recentShifts = await CaLamViec.findAll({
+        where: {
+          NgayLamViec: { [Op.gte]: fourWeeksAgo }
+        },
+        attributes: ['NgayLamViec']
+      });
+
+      let weeklyShifts = [
+        { label: 'Tuần này', count: 0 },
+        { label: 'Tuần trước', count: 0 },
+        { label: '2 tuần trước', count: 0 },
+        { label: '3 tuần trước', count: 0 }
+      ];
+
+      const now = new Date();
+      recentShifts.forEach(shift => {
+        const shiftDate = new Date(shift.NgayLamViec);
+        const diffTime = Math.abs(now - shiftDate);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays <= 7) {
+          weeklyShifts[0].count++;
+        } else if (diffDays <= 14) {
+          weeklyShifts[1].count++;
+        } else if (diffDays <= 21) {
+          weeklyShifts[2].count++;
+        } else if (diffDays <= 28) {
+          weeklyShifts[3].count++;
+        }
+      });
+      weeklyShifts = weeklyShifts.reverse();
+
+      // Thống kê dòng tiền
+      const cashFlowData = await LichSuViTien.findAll({
+        attributes: ['LoaiGiaoDich', [sequelize.fn('SUM', sequelize.col('SoTien')), 'totalAmount']],
+        group: ['LoaiGiaoDich']
+      });
+      
+      let cashFlowStats = {
+        deposit: 0, // 1: nạp tiền
+        payment: 0, // 2: thanh toán
+        refund: 0, // 3: hoàn tiền
+        payout: 0  // 4: trả lương / rút tiền
+      };
+      
+      cashFlowData.forEach(item => {
+        const type = item.LoaiGiaoDich;
+        const amount = parseFloat(item.get('totalAmount') || 0);
+        if (type === 1) cashFlowStats.deposit += amount;
+        if (type === 2) cashFlowStats.payment += amount;
+        if (type === 3) cashFlowStats.refund += amount;
+        if (type === 4) cashFlowStats.payout += amount;
+      });
+
+      const finishedCaLam = await CaLamViec.findAll({ where: { TrangThaiDonHang: 2 } });
       const totalRevenue = finishedCaLam.reduce((sum, job) => sum + parseFloat(job.TongTien), 0);
       const systemEarnings = finishedCaLam.reduce((sum, job) => sum + parseFloat(job.TienHeThongNhan), 0);
 
@@ -423,13 +550,76 @@ class AdminController {
         totalCustomers,
         totalProviders,
         totalBookings,
-        totalRevenue, // Total gross sales
-        systemEarnings, // System commission profit
+        totalRevenue,
+        systemEarnings,
         pendingBookings,
-        completedBookings
+        completedBookings,
+        shiftStats,
+        cashFlowStats,
+        weeklyShifts
       };
 
       return success(res, metrics, 'Lấy dữ liệu thống kê thành công');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // Lịch sử hoa hồng hệ thống
+  async getSystemEarningsHistory(req, res, next) {
+    try {
+      const history = await CaLamViec.findAll({
+        where: {
+          TrangThaiDonHang: 2, // Hoàn thành
+          TienHeThongNhan: { [Op.gt]: 0 }
+        },
+        include: [
+          {
+            model: NguoiDung,
+            as: 'KhachHang',
+            attributes: ['HoTenNguoiDung', 'SoDienThoai']
+          },
+          {
+            model: NguoiDung,
+            as: 'NhanVien',
+            attributes: ['HoTenNguoiDung', 'SoDienThoai']
+          }
+        ],
+        order: [['NgayHoanThanh', 'DESC'], ['NgayLamViec', 'DESC']],
+        attributes: ['MaCaLam', 'NgayLamViec', 'GioBatDau', 'GioKetThuc', 'TienHeThongNhan', 'NgayHoanThanh']
+      });
+
+      return success(res, history, 'Lấy lịch sử hoa hồng thành công');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // Lịch sử doanh thu gộp (Gross Revenue)
+  async getGrossRevenueHistory(req, res, next) {
+    try {
+      const history = await CaLamViec.findAll({
+        where: {
+          TrangThaiDonHang: 2, // Hoàn thành
+          TongTien: { [Op.gt]: 0 }
+        },
+        include: [
+          {
+            model: NguoiDung,
+            as: 'KhachHang',
+            attributes: ['HoTenNguoiDung', 'SoDienThoai']
+          },
+          {
+            model: NguoiDung,
+            as: 'NhanVien',
+            attributes: ['HoTenNguoiDung', 'SoDienThoai']
+          }
+        ],
+        order: [['NgayHoanThanh', 'DESC'], ['NgayLamViec', 'DESC']],
+        attributes: ['MaCaLam', 'NgayLamViec', 'GioBatDau', 'GioKetThuc', 'TongTien', 'NgayHoanThanh']
+      });
+
+      return success(res, history, 'Lấy lịch sử doanh thu gộp thành công');
     } catch (err) {
       next(err);
     }
@@ -524,19 +714,44 @@ class AdminController {
             throw new Error(`Số tiền đền bù (${hoanTienAmount}) không được vượt quá số tiền thực tế ca làm (${caLam.TongTien})`);
           }
 
-          // Fetch client and system wallets
+          // Fetch wallets
           const customerWallet = await ViTien.findOne({ where: { MaNguoiDung: complaint.MaNguoiGui } });
           const systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
+          const providerWallet = await ViTien.findOne({ where: { MaNguoiDung: complaint.MaNguoiBiKhieuNai } });
 
-          if (customerWallet && systemWallet) {
-            // Deduct penalty from provider's pending payout if not yet paid
-            if (caLam.TongTienTre !== null && !caLam.DaThanhToan) {
+          if (customerWallet && systemWallet && providerWallet) {
+            let providerPenalty = 0;
+
+            if (caLam.DaThanhToan) {
+              // Provider already paid, deduct directly from their wallet
+              const providerReceived = parseFloat(caLam.TongTien) - parseFloat(caLam.TienHeThongNhan);
+              providerPenalty = Math.min(hoanTienAmount, providerReceived);
+              
+              const newProvBalance = parseFloat(providerWallet.SoDu) - providerPenalty;
+              await providerWallet.update({ SoDu: newProvBalance }, { transaction: tx });
+              
+              systemWallet.SoDu = parseFloat(systemWallet.SoDu) + providerPenalty;
+              await systemWallet.save({ transaction: tx });
+
+              await LichSuViTien.create({
+                MaViNguon: providerWallet.MaViTien,
+                MaViDich: systemWallet.MaViTien,
+                MaCaLam: caLam.MaCaLam,
+                MaKhieuNai: complaintId,
+                LoaiGiaoDich: 4, // 4: Trừ tiền phạt
+                SoTien: providerPenalty,
+                SoDuSau: newProvBalance,
+                NgayTao: new Date()
+              }, { transaction: tx });
+            } else if (caLam.TongTienTre !== null) {
+              // Deduct from pending payout
               const currentPending = parseFloat(caLam.TongTienTre);
-              const remainingPending = Math.max(0, currentPending - hoanTienAmount);
+              providerPenalty = Math.min(hoanTienAmount, currentPending);
+              const remainingPending = currentPending - providerPenalty;
               await caLam.update({ TongTienTre: remainingPending }, { transaction: tx });
             }
 
-            // Trừ tiền bồi thường từ ví hệ thống
+            // Trừ tiền bồi thường từ ví hệ thống để hoàn cho khách
             const newSysBalance = parseFloat(systemWallet.SoDu) - hoanTienAmount;
             await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
 
@@ -550,7 +765,7 @@ class AdminController {
               MaViDich: customerWallet.MaViTien,
               MaCaLam: caLam.MaCaLam,
               MaKhieuNai: complaintId,
-              LoaiGiaoDich: 3, // 3: Hoan tien
+              LoaiGiaoDich: 3, // 3: Hoàn tiền
               SoTien: hoanTienAmount,
               SoDuSau: newCustBalance,
               NgayTao: new Date()

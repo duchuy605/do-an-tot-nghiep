@@ -302,7 +302,7 @@ class CustomerController {
       const shifts = await CaLamViec.findAll({
         where: {
           MaNhanVien: providerId,
-          TrangThaiDonHang: { [Op.notIn]: [3] } // Không lấy ca đã hủy
+          TrangThaiDonHang: { [Op.in]: [0, 1] } // Chỉ lấy ca đang chờ hoặc đã nhận
         },
         attributes: ['NgayLamViec', 'GioBatDau', 'GioKetThuc'],
         order: [['NgayLamViec', 'ASC']]
