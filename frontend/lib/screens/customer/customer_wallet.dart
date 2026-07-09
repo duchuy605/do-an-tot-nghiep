@@ -42,6 +42,13 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
       return;
     }
 
+    if (amount > 10000000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Số tiền nạp tối đa mỗi lần là 10.000.000 VNĐ.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     Navigator.pop(context); // Close bottom sheet
     final response = await _viewModel.topUpWallet(amount);
 

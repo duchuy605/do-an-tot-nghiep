@@ -42,6 +42,13 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
       return;
     }
 
+    if (amount > 10000000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Số tiền rút tối đa mỗi lần là 10.000.000 VNĐ.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     if (amount > _viewModel.balance) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Số dư ví không đủ để rút.'), backgroundColor: Colors.red),

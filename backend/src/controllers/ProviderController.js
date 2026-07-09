@@ -427,6 +427,9 @@ class ProviderController {
       if (!amount || amount <= 0) {
         return error(res, 'Số tiền rút phải lớn hơn 0', 400);
       }
+      if (amount > 10000000) {
+        return error(res, 'Số tiền rút tối đa mỗi lần là 10.000.000 VNĐ', 400);
+      }
 
       let wallet = await ViTien.findOne({ where: { MaNguoiDung: providerId } });
       if (!wallet) {

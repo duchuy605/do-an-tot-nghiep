@@ -32,7 +32,7 @@ class _PackageCrudScreenState extends State<PackageCrudScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+            child: const Text('Đóng', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -137,7 +137,7 @@ class _PackageCrudScreenState extends State<PackageCrudScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+              child: const Text('Hủy', style: TextStyle(color: Colors.black)),
             ),
             ElevatedButton(
               onPressed: () async {

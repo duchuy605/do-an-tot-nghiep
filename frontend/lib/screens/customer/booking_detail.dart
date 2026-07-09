@@ -419,7 +419,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
           return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Đổi Ca Làm Việc', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('Đổi Lịch Làm Việc', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -516,7 +516,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 controller: reasonController,
                 maxLines: 2,
                 decoration: const InputDecoration(
-                  labelText: 'Lý do đổi ca',
+                  labelText: 'Lý do đổi lịch',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -533,7 +533,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text('Ủy quyền hệ thống'),
-                    content: const Text('Nếu nhân viên từ chối đổi ca thì bạn có đồng ý ủy quyền cho hệ thống chọn nhân viên khác không?'),
+                    content: const Text('Nếu nhân viên từ chối đổi lịch thì bạn có đồng ý ủy quyền cho hệ thống chọn nhân viên khác không?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
@@ -553,7 +553,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   Navigator.pop(context, {'confirmed': true, 'uyQuyen': confirm});
                 }
               },
-              child: Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: hasConflict ? Colors.grey : const Color(0xFFFF8225))),
+              child: Text('Đổi Lịch', style: TextStyle(fontWeight: FontWeight.bold, color: hasConflict ? Colors.grey : const Color(0xFFFF8225))),
             ),
           ],
         );
@@ -574,12 +574,12 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
     if (response['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đổi ca làm việc thành công!'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Đổi lịch làm việc thành công!'), backgroundColor: Colors.green),
       );
       _viewModel.loadBookingDetails(widget.maDatLich);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? 'Không thể đổi ca làm việc.')),
+        SnackBar(content: Text(response['message'] ?? 'Không thể đổi lịch làm việc.')),
       );
     }
   }
@@ -935,7 +935,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                                 const SizedBox(width: 6),
                                                 const Expanded(
                                                   child: Text(
-                                                    'Yêu cầu đổi ca (đang chờ)',
+                                                    'Yêu cầu đổi lịch (đang chờ)',
                                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFE65100)),
                                                   ),
                                                 ),
@@ -1001,7 +1001,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                       );
                                     }),
                                   ] else ...[
-                                    // Không có yêu cầu đang chờ → hiện nút Đổi ca bình thường
+                                    // Không có yêu cầu đang chờ → hiện nút Đổi lịch bình thường
                                     Align(
                                       alignment: Alignment.centerRight,
                                       child: Row(
@@ -1023,7 +1023,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                           ],
                                           OutlinedButton.icon(
                                             icon: const Icon(Icons.event_repeat_rounded, size: 14),
-                                            label: const Text('Đổi ca'),
+                                            label: const Text('Đổi Lịch'),
                                             onPressed: () => _showRescheduleDialog(shift),
                                             style: OutlinedButton.styleFrom(
                                               foregroundColor: orangeColor,

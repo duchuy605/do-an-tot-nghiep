@@ -180,12 +180,43 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
     TimeOfDay endTime = oldEndTime;
     final reasonController = TextEditingController();
 
+    int durationMins = (oldEndTime.hour - oldStartTime.hour) * 60 + (oldEndTime.minute - oldStartTime.minute);
+    bool hasConflict = false;
+
+    void checkConflict() {
+      hasConflict = false;
+      int newStartMins = startTime.hour * 60 + startTime.minute;
+      int newEndMins = newStartMins + durationMins;
+      String newDateStr = _formatDate(selectedDate);
+
+      for (var s in _viewModel.myJobs) {
+        if (s['MaCaLam'] == job['MaCaLam']) continue; // Bỏ qua ca hiện tại
+        int status = s['TrangThaiDonHang'] ?? 0;
+        if (status == 0 || status == 1 || status == 2) { 
+           String otherDateStr = s['NgayLamViec'] ?? '';
+           if (otherDateStr.startsWith(newDateStr)) {
+              TimeOfDay otherStart = _parseTimeOfDay(s['GioBatDau'] ?? '08:00:00');
+              TimeOfDay otherEnd = _parseTimeOfDay(s['GioKetThuc'] ?? '10:00:00');
+              int otherStartMins = otherStart.hour * 60 + otherStart.minute;
+              int otherEndMins = otherEnd.hour * 60 + otherEnd.minute;
+              
+              if (newStartMins < otherEndMins && otherStartMins < newEndMins) {
+                hasConflict = true;
+                break;
+              }
+           }
+        }
+      }
+    }
+
+    checkConflict();
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Đổi Ca Làm Việc', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('Đổi Lịch Làm Việc', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -214,7 +245,12 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 180)),
                   );
-                  if (picked != null) setDialogState(() => selectedDate = picked);
+                  if (picked != null) {
+                    setDialogState(() {
+                      selectedDate = picked;
+                      checkConflict();
+                    });
+                  }
                 },
               ),
               ListTile(
@@ -224,10 +260,33 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                 subtitle: Text(startTime.format(context)),
                 onTap: () async {
                   final picked = await showTimePicker(context: context, initialTime: startTime);
-                  if (picked != null) setDialogState(() => startTime = picked);
+                  if (picked != null) {
+                    setDialogState(() {
+                      startTime = picked;
+                      checkConflict();
+                    });
+                  }
                 },
               ),
               const SizedBox(height: 8),
+              if (hasConflict)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.error_outline, size: 16, color: Colors.red),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Thời gian này bị trùng với một ca làm việc khác của bạn!',
+                          style: TextStyle(fontSize: 12, color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
@@ -249,7 +308,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                 controller: reasonController,
                 maxLines: 2,
                 decoration: const InputDecoration(
-                  labelText: 'Lý do đổi ca',
+                  labelText: 'Lý do đổi lịch',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -258,13 +317,13 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+              child: const Text('Đóng', style: TextStyle(color: Color(0xFFFF8225))),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: hasConflict ? null : () {
                 Navigator.pop(context, true);
               },
-              child: const Text('Đổi Ca', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF8225))),
+              child: Text('Đổi Lịch', style: TextStyle(fontWeight: FontWeight.bold, color: hasConflict ? Colors.grey : const Color(0xFFFF8225))),
             ),
           ],
         ),
@@ -283,12 +342,12 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
 
     if (response['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đổi ca làm việc thành công!'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Đổi lịch làm việc thành công!'), backgroundColor: Colors.green),
       );
       _viewModel.loadMyJobs();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? 'Không thể đổi ca làm việc.')),
+        SnackBar(content: Text(response['message'] ?? 'Không thể đổi lịch làm việc.')),
       );
     }
   }
@@ -770,7 +829,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 minimumSize: Size.zero,
                               ),
-                              child: const Text('Đổi Ca', style: TextStyle(fontSize: 11)),
+                              child: const Text('Đổi Lịch', style: TextStyle(fontSize: 11)),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton(
@@ -801,7 +860,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 minimumSize: Size.zero,
                               ),
-                              child: const Text('Đổi Ca', style: TextStyle(fontSize: 11)),
+                              child: const Text('Đổi Lịch', style: TextStyle(fontSize: 11)),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton(
@@ -984,7 +1043,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                           ),
-                          child: const Text('Đổi Ca'),
+                          child: const Text('Đổi Lịch'),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
@@ -1169,7 +1228,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                               const SizedBox(width: 8),
                               const Expanded(
                                 child: Text(
-                                  'Yêu cầu đổi ca (đang chờ)',
+                                  'Yêu cầu đổi lịch (đang chờ)',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFFE65100)),
                                 ),
                               ),
@@ -1288,7 +1347,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                       child: OutlinedButton.icon(
                         onPressed: () { Navigator.pop(context); _handleRescheduleJob(job); },
                         icon: const Icon(Icons.event_repeat_rounded, size: 18),
-                        label: const Text('Đổi Ca'),
+                        label: const Text('Đổi Lịch'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: orangeColor,
                           side: BorderSide(color: orangeColor),
