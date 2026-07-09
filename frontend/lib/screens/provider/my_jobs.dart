@@ -762,15 +762,15 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             OutlinedButton(
-                              onPressed: () { Navigator.pop(context); _handleCancelJob(caLamId); },
+                              onPressed: () { Navigator.pop(context); _handleRescheduleJob(job); },
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red),
+                                foregroundColor: orangeColor,
+                                side: BorderSide(color: orangeColor),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 minimumSize: Size.zero,
                               ),
-                              child: const Text('Từ Chối', style: TextStyle(fontSize: 11)),
+                              child: const Text('Đổi Ca', style: TextStyle(fontSize: 11)),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton(
@@ -793,15 +793,15 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             OutlinedButton(
-                              onPressed: () { Navigator.pop(context); _handleCancelJob(caLamId); },
+                              onPressed: () { Navigator.pop(context); _handleRescheduleJob(job); },
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red),
+                                foregroundColor: orangeColor,
+                                side: BorderSide(color: orangeColor),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 minimumSize: Size.zero,
                               ),
-                              child: const Text('Từ Chối', style: TextStyle(fontSize: 11)),
+                              child: const Text('Đổi Ca', style: TextStyle(fontSize: 11)),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton(
@@ -1240,19 +1240,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                       ),
                     );
                   }
-
-                  // Không có yêu cầu đang chờ → hiện nút Đổi ca bình thường
-                  return OutlinedButton.icon(
-                    onPressed: () { Navigator.pop(context); _handleRescheduleJob(job); },
-                    icon: const Icon(Icons.event_repeat_rounded, size: 18),
-                    label: const Text('Đổi Ca Làm Việc'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: orangeColor,
-                      side: BorderSide(color: orangeColor),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  );
+                  return const SizedBox.shrink();
                 }),
                 const SizedBox(height: 12),
               ],
@@ -1355,7 +1343,7 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
     );
   }
 
-  Widget _buildTabContent(List filteredList, Color orangeColor, Color darkColor) {
+  Widget _buildTabContent(List<dynamic> filteredList, Color orangeColor, Color darkColor, {bool isHistory = false}) {
     if (filteredList.isEmpty) {
       return Center(
         child: Column(
@@ -1387,6 +1375,23 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
     for (final entry in recurringGroups.entries) {
       displayItems.add({'type': 'recurring', 'maDatLich': entry.key, 'jobs': entry.value});
     }
+
+    displayItems.sort((a, b) {
+      final dateA = a['type'] == 'recurring' ? (a['jobs'].isNotEmpty ? a['jobs'].first['NgayLamViec'] : '') : (a['job']['NgayLamViec'] ?? '');
+      final timeA = a['type'] == 'recurring' ? (a['jobs'].isNotEmpty ? a['jobs'].first['GioBatDau'] : '') : (a['job']['GioBatDau'] ?? '');
+      final dateB = b['type'] == 'recurring' ? (b['jobs'].isNotEmpty ? b['jobs'].first['NgayLamViec'] : '') : (b['job']['NgayLamViec'] ?? '');
+      final timeB = b['type'] == 'recurring' ? (b['jobs'].isNotEmpty ? b['jobs'].first['GioBatDau'] : '') : (b['job']['GioBatDau'] ?? '');
+
+      if (isHistory) {
+        int dateCmp = (dateB ?? '').compareTo(dateA ?? '');
+        if (dateCmp != 0) return dateCmp;
+        return (timeB ?? '').compareTo(timeA ?? '');
+      } else {
+        int dateCmp = (dateA ?? '').compareTo(dateB ?? '');
+        if (dateCmp != 0) return dateCmp;
+        return (timeA ?? '').compareTo(timeB ?? '');
+      }
+    });
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -1486,7 +1491,7 @@ historyJobs.sort((a, b) {
               RefreshIndicator(
                 onRefresh: _viewModel.loadMyJobs,
                 color: orangeColor,
-                child: _buildTabContent(historyJobs, orangeColor, darkColor),
+                child: _buildTabContent(historyJobs, orangeColor, darkColor, isHistory: true),
               ),
             ],
           );
