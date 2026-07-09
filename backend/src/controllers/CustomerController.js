@@ -902,12 +902,15 @@ class CustomerController {
         return error(res, 'Yêu cầu đổi lịch không tồn tại', 404);
       }
 
-      if (request.MaNguoiXuLy !== userId) {
-        return error(res, 'Bạn không có quyền phản hồi yêu cầu đổi lịch này', 403);
+      const isResponder = request.MaNguoiXuLy === userId;
+      const isRequesterCanceling = request.MaNguoiYeuCau === userId && DongY === false;
+
+      if (!isResponder && !isRequesterCanceling) {
+        return error(res, 'Bạn không có quyền phản hồi hoặc hủy yêu cầu đổi lịch này', 403);
       }
 
       if (request.KetQua !== 0) {
-        return error(res, 'Yêu cầu đổi lịch này đã được phản hồi trước đó', 400);
+        return error(res, 'Yêu cầu đổi lịch này đã được phản hồi hoặc hủy trước đó', 400);
       }
 
       const job = request.CaLamViec;
@@ -918,10 +921,7 @@ class CustomerController {
       if (![0, 1].includes(job.TrangThaiDonHang)) {
         return error(res, 'Chỉ có thể xử lý yêu cầu đổi lịch cho ca chưa hoàn thành hoặc chưa hủy', 400);
       }
-      console.log('Ngày mới:', request.NgayMoi);
-      console.log('Kiểu dữ liệu ngày mới:', typeof request.NgayMoi);
-      console.log('Ngày mới có phải là Date không:', request.NgayMoi instanceof Date);
-      const ngayMoi = request.NgayMoi.split(' ')[0];
+      const ngayMoi = request.NgayMoi.toISOString().split('T')[0];
       const gioBatDauMoi = request.GioBatDauMoi;
       const gioKetThucMoi = request.GioKetThucMoi;
 
@@ -948,7 +948,19 @@ class CustomerController {
       if (!DongY) {
         await request.update({ KetQua: 2, NgayDoi: new Date() }, { transaction: tx });
         
-        if (req.user.VaiTro === 2) {
+        if (isRequesterCanceling) {
+          // Người yêu cầu tự hủy yêu cầu của mình -> giữ nguyên lịch cũ
+          await tx.commit();
+          tx = null;
+
+          oCamManager.guiThongBaoNguoiDung(request.MaNguoiXuLy, {
+            tieuDe: 'Yêu cầu đổi ca đã bị hủy',
+            noiDung: `Người dùng đã hủy yêu cầu đổi ca #${job.MaCaLam}. Lịch làm việc vẫn giữ nguyên như cũ.`,
+            data: request
+          });
+
+          return success(res, request, 'Đã hủy yêu cầu đổi lịch thành công.');
+        } else if (req.user.VaiTro === 2) {
           // Nhân viên từ chối -> chuyển ca làm về bảng việc trống và cập nhật ngày giờ mới
           await job.update({
             MaNhanVien: null,

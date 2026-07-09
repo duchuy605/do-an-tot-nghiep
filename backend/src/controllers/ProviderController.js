@@ -311,14 +311,25 @@ class ProviderController {
         return error(res, 'Chỉ có thể hoàn thành ca làm việc đang ở trạng thái đã nhận', 400);
       }
 
-      // Kiểm tra ngày giờ làm việc: chỉ cho hoàn thành khi đã qua thời gian kết thúc ca làm
+      // Kiểm tra khoảng thời gian cho phép báo cáo hoàn thành:
+      // Sớm nhất: trước giờ kết thúc 15 phút.
+      // Trễ nhất: sau giờ kết thúc 30 phút.
       const now = new Date();
       // Thêm +07:00 để đảm bảo Node.js parse đúng múi giờ Việt Nam
       const endDateTimeString = `${job.NgayLamViec}T${job.GioKetThuc}+07:00`;
-      const endDateTime = new Date(endDateTimeString);
+      
+      const minAllowTime = new Date(endDateTimeString);
+      minAllowTime.setMinutes(minAllowTime.getMinutes() - 15);
 
-      if (now < endDateTime) {
-        return error(res, `Chưa đến thời gian kết thúc ca làm (${job.GioKetThuc} ngày ${job.NgayLamViec}). Không thể hoàn thành công việc sớm.`, 400);
+      const maxAllowTime = new Date(endDateTimeString);
+      maxAllowTime.setMinutes(maxAllowTime.getMinutes() + 30);
+
+      if (now < minAllowTime) {
+        return error(res, `Chưa đến thời gian hoàn thành. Bạn chỉ có thể báo cáo hoàn thành sớm tối đa 15 phút trước khi kết thúc ca làm.`, 400);
+      }
+
+      if (now > maxAllowTime) {
+        return error(res, `Đã quá hạn báo cáo hoàn thành. Bạn chỉ được phép báo cáo trễ tối đa 30 phút sau khi kết thúc ca làm. Hãy liên hệ Admin để được hỗ trợ.`, 400);
       }
 
       const splitProvider = parseInt(process.env.REVENUE_SPLIT_PROVIDER || 80);
