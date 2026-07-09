@@ -754,7 +754,7 @@ class AdminController {
                 MaViDich: systemWallet.MaViTien,
                 MaCaLam: caLam.MaCaLam,
                 MaKhieuNai: complaintId,
-                LoaiGiaoDich: 4, // 4: Trừ tiền phạt
+                LoaiGiaoDich: 7, // 7: Trừ tiền phạt
                 SoTien: providerPenalty,
                 SoDuSau: newProvBalance,
                 NgayTao: new Date()
@@ -765,6 +765,18 @@ class AdminController {
               providerPenalty = Math.min(hoanTienAmount, currentPending);
               const remainingPending = currentPending - providerPenalty;
               await caLam.update({ TongTienTre: remainingPending }, { transaction: tx });
+              
+              // Ghi nhận lịch sử phạt dù tiền chưa vào ví, SoDuSau giữ nguyên vì chỉ trừ từ TongTienTre
+              await LichSuViTien.create({
+                MaViNguon: providerWallet.MaViTien,
+                MaViDich: systemWallet.MaViTien,
+                MaCaLam: caLam.MaCaLam,
+                MaKhieuNai: complaintId,
+                LoaiGiaoDich: 7, // 7: Trừ tiền phạt
+                SoTien: providerPenalty,
+                SoDuSau: providerWallet.SoDu,
+                NgayTao: new Date()
+              }, { transaction: tx });
             }
 
             // Trừ tiền bồi thường từ ví hệ thống để hoàn cho khách
@@ -820,6 +832,15 @@ class AdminController {
         noiDung: `Khiếu nại #${complaint.MaKhieuNai} của bạn đã được Admin xử lý.`,
         data: updatedComplaint
       });
+
+      // Gửi thông báo cho nhân viên bị khiếu nại (để họ biết về quyết định xử lý và số tiền bị trừ nếu có)
+      if (complaint.MaNguoiBiKhieuNai) {
+        oCamManager.guiThongBaoNguoiDung(complaint.MaNguoiBiKhieuNai, {
+          tieuDe: 'Kết quả khiếu nại ca làm việc!',
+          noiDung: `Khiếu nại #${complaint.MaKhieuNai} liên quan đến bạn đã được xử lý. Vui lòng kiểm tra lịch sử ví để xem chi tiết.`,
+          data: updatedComplaint
+        });
+      }
 
       return success(res, updatedComplaint, 'Xử lý và hoàn thành khiếu nại thành công');
     } catch (err) {

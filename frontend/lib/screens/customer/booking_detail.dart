@@ -30,6 +30,18 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     super.dispose();
   }
 
+  bool _isWithin24Hours(String ngayLamViec, String gioKetThuc) {
+    try {
+      final dateStr = ngayLamViec.contains('T') ? ngayLamViec.split('T')[0] : ngayLamViec.split(' ')[0];
+      final timeStr = gioKetThuc.length == 5 ? '$gioKetThuc:00' : gioKetThuc;
+      final endDateTime = DateTime.parse('$dateStr $timeStr');
+      final now = DateTime.now();
+      return now.difference(endDateTime).inHours <= 24;
+    } catch (e) {
+      return true;
+    }
+  }
+
   Future<void> _handleCancel() async {
     final booking = _viewModel.booking;
     final isPaid = booking != null && booking.trangThai == 2;
@@ -1039,36 +1051,39 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                 ],
 
                                 // Feedback Actions
-                                if (shift.trangThaiDonHang == 2) ...[
+                                if (shift.trangThaiDonHang == 2 && _isWithin24Hours(shift.ngayLamViec, shift.gioKetThuc) && (!shift.daDanhGia || !shift.daKhieuNai)) ...[
                                   const SizedBox(height: 12),
                                   const Divider(),
                                   const SizedBox(height: 6),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
-                                      OutlinedButton.icon(
-                                        icon: const Icon(Icons.star_rounded, size: 14),
-                                        label: const Text('Đánh giá'),
-                                        onPressed: () => _showReviewDialog(shift.maCaLam),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: Colors.amber.shade800,
-                                          side: BorderSide(color: Colors.amber.shade600),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      if (!shift.daDanhGia)
+                                        OutlinedButton.icon(
+                                          icon: const Icon(Icons.star_rounded, size: 14),
+                                          label: const Text('Đánh giá'),
+                                          onPressed: () => _showReviewDialog(shift.maCaLam),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.amber.shade800,
+                                            side: BorderSide(color: Colors.amber.shade600),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      OutlinedButton.icon(
-                                        icon: const Icon(Icons.warning_rounded, size: 14),
-                                        label: const Text('Khiếu nại'),
-                                        onPressed: () => _showComplaintDialog(shift.maCaLam),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: Colors.red,
-                                          side: const BorderSide(color: Colors.red),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      if (!shift.daDanhGia && !shift.daKhieuNai)
+                                        const SizedBox(width: 8),
+                                      if (!shift.daKhieuNai)
+                                        OutlinedButton.icon(
+                                          icon: const Icon(Icons.warning_rounded, size: 14),
+                                          label: const Text('Khiếu nại'),
+                                          onPressed: () => _showComplaintDialog(shift.maCaLam),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.red,
+                                            side: const BorderSide(color: Colors.red),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ],

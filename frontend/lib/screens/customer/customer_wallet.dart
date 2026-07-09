@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../utils/currency_formatter.dart';
 import '../../viewmodels/customer/customer_wallet_viewmodel.dart';
 
 class CustomerWalletScreen extends StatefulWidget {
@@ -30,22 +31,40 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
     super.dispose();
   }
 
+  void _showMessageBox(String message, {bool isSuccess = false}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(isSuccess ? Icons.check_circle : Icons.error, color: isSuccess ? Colors.green : Colors.red),
+            const SizedBox(width: 8),
+            Text(isSuccess ? 'Thành công' : 'Lỗi'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleTopUp() async {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) return;
 
     final amount = int.tryParse(amountText);
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập số tiền hợp lệ.')),
-      );
+    if (amount == null || amount < 100000) {
+      _showMessageBox('Số tiền nạp tối thiểu mỗi lần là 100.000 VNĐ.');
       return;
     }
 
     if (amount > 10000000) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Số tiền nạp tối đa mỗi lần là 10.000.000 VNĐ.'), backgroundColor: Colors.red),
-      );
+      _showMessageBox('Số tiền nạp tối đa mỗi lần là 10.000.000 VNĐ.');
       return;
     }
 
@@ -56,14 +75,10 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
 
     if (response['success'] == true) {
       _amountController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nạp tiền vào ví thành công!'), backgroundColor: Colors.green),
-      );
+      _showMessageBox('Nạp tiền vào ví thành công!', isSuccess: true);
       _viewModel.loadWalletData();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? 'Nạp tiền thất bại.')),
-      );
+      _showMessageBox(response['message'] ?? 'Nạp tiền thất bại.');
     }
   }
 
@@ -100,22 +115,22 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
               // Quick amount selector chips
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [50000, 100000, 200000, 500000].map((amt) {
+                children: [100000, 200000, 500000, 1000000].map((amt) {
                   final label = '${(amt / 1000).toStringAsFixed(0)}k đ';
                   return ChoiceChip(
                     label: Text(label),
-                    selected: _amountController.text == amt.toString(),
+                    selected: _amountController.text.replaceAll(RegExp(r'[^0-9]'), '') == amt.toString(),
                     selectedColor: orangeColor.withOpacity(0.15),
                     checkmarkColor: orangeColor,
                     labelStyle: TextStyle(
-                      color: _amountController.text == amt.toString() ? orangeColor : darkColor,
+                      color: _amountController.text.replaceAll(RegExp(r'[^0-9]'), '') == amt.toString() ? orangeColor : darkColor,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
                     onSelected: (selected) {
                       setSheetState(() {
                         if (selected) {
-                          _amountController.text = amt.toString();
+                          _amountController.text = NumberFormat('#,###', 'vi_VN').format(amt);
                         } else {
                           _amountController.clear();
                         }
@@ -129,11 +144,12 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
               TextField(
                 controller: _amountController,
                 keyboardType: TextInputType.number,
+                inputFormatters: [CurrencyTextInputFormatter()],
                 autofocus: true,
                 style: const TextStyle(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
                   labelText: 'Số tiền muốn nạp (đ)',
-                  hintText: 'Ví dụ: 200000',
+                  hintText: 'Ví dụ: 200.000',
                   prefixIcon: const Icon(Icons.monetization_on_outlined, color: orangeColor),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: orangeColor, width: 1.5)),
