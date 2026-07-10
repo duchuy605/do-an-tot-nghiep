@@ -52,7 +52,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ],
           ),
           content: const Text(
-            'Số dư tài khoản ví bPay của bạn không đủ để thực hiện giao dịch này. Vui lòng nạp thêm tiền vào ví để tiếp tục.',
+            'Số dư tài khoản ví CleanGoPay của bạn không đủ để thực hiện giao dịch này. Vui lòng nạp thêm tiền vào ví để tiếp tục.',
             style: TextStyle(height: 1.4, fontSize: 14),
           ),
           actions: [
@@ -107,7 +107,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Đơn đặt lịch #${widget.maDatLich} của bạn đã được thanh toán qua ví bPay.',
+                'Đơn đặt lịch #${widget.maDatLich} của bạn đã được thanh toán qua ví CleanGoPay.',
                 style: const TextStyle(fontSize: 14, color: Colors.grey, height: 1.4),
                 textAlign: TextAlign.center,
               ),
@@ -314,7 +314,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Payment Method (Single Wallet bPay)
+                    // Payment Method (Single Wallet CleanGoPay)
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -354,7 +354,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                          'Ví bPay',
+                                          'Ví CleanGoPay',
                                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: darkColor),
                                         ),
                                         const SizedBox(height: 4),

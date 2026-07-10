@@ -143,7 +143,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
           ],
         ),
         content: const Text(
-          'Số dư ví bPay không đủ để thanh toán. Vui lòng nạp thêm tiền.',
+          'Số dư ví CleanGoPay không đủ để thanh toán. Vui lòng nạp thêm tiền.',
           style: TextStyle(height: 1.4, fontSize: 14),
         ),
         actions: [
@@ -321,7 +321,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Ví bPay', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: darkColor)),
+                                  const Text('Ví CleanGoPay', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: darkColor)),
                                   const SizedBox(height: 4),
                                   Text(
                                     'Số dư: ${_formatCurrency(_viewModel.walletBalance)}',

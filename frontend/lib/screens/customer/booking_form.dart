@@ -685,7 +685,8 @@ Future<void> _selectTime(BuildContext context) async {
                             final name = provider['HoTenNguoiDung'] ?? 'Nhân viên';
                             final hoSo = provider['HoSoNhanVien'];
                             final soGio = hoSo != null ? (hoSo['SoGioLamViec'] ?? 0) : 0;
-                            final rating = hoSo != null ? (hoSo['SoSaoTrungBinh'] ?? 0) : 0;
+                            final ratingRaw = hoSo != null ? (hoSo['SoSaoTrungBinh'] ?? 5.0) : 5.0;
+                            final rating = double.tryParse(ratingRaw.toString())?.toStringAsFixed(1) ?? '5.0';
                             final soDienThoai = provider['SoDienThoai'] ?? 'Không có';
                             print(provider['GioiTinh']);
                             print(provider['GioiTinh'].runtimeType);  

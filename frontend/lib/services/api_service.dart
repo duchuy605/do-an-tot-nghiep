@@ -8,7 +8,7 @@ class ApiService {
   // Cấu hình URL cơ sở của backend.
   // Khi chạy trên thiết bị Android Emulator: dùng 'http://10.0.2.2:3000/api'
   // Khi chạy trên Windows/Web/iOS Emulator: dùng 'http://localhost:3000/api'
-  static String baseUrl = 'http://localhost:3000/api';
+  static String baseUrl = 'http://10.0.2.2:3000/api';
 
   /// Lấy token JWT đã lưu trong bộ nhớ cục bộ
   static Future<String?> getToken() async {
@@ -332,7 +332,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  /// Thanh toán đơn đặt lịch bằng ví bPay
+  /// Thanh toán đơn đặt lịch bằng ví CleanGoPay
   /// POST /api/payments
   /// Bảng: DonDatLich, ViTien, LichSuViTien
   /// Tham số: MaDatLich
@@ -346,7 +346,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  /// Nạp tiền vào ví bPay
+  /// Nạp tiền vào ví CleanGoPay
   /// POST /api/wallet/topup
   /// Bảng: ViTien, LichSuViTien
   /// Tham số: SoTien (số tiền muốn nạp)
@@ -359,7 +359,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  /// Lấy thông tin ví bPay (số dư hiện tại)
+  /// Lấy thông tin ví CleanGoPay (số dư hiện tại)
   /// GET /api/wallet
   /// Bảng: ViTien
   /// Trả về: SoDu, LoaiVi, ...
@@ -371,7 +371,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  /// Lấy lịch sử giao dịch ví bPay
+  /// Lấy lịch sử giao dịch ví CleanGoPay
   /// GET /api/wallet/history
   /// Bảng: LichSuViTien
   /// Trả về: danh sách giao dịch (nạp, thanh toán, hoàn tiền, rút tiền, ...)

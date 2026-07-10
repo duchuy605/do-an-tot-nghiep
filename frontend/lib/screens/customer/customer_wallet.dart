@@ -107,7 +107,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Nạp Tiền Vào Ví bPay',
+                'Nạp Tiền Vào Ví CleanGoPay',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkColor),
                 textAlign: TextAlign.center,
               ),
@@ -182,7 +182,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
       case 1:
         return 'Nạp tiền ví';
       case 2:
-        return 'Thanh toán lịch dọn';
+        return 'Thanh toán lịch đặt';
       case 3:
         return 'Hoàn tiền khiếu nại';
       case 4:
@@ -216,7 +216,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Ví Tiền bPay', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Ví Tiền CleanGoPay', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: darkColor,
         elevation: 0,
@@ -261,7 +261,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    'bPay Wallet',
+                                    'CleanGoPay Wallet',
                                     style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.1),
                                   ),
                                   Icon(Icons.nfc_rounded, color: orangeColor.withOpacity(0.8), size: 28),
