@@ -5,6 +5,7 @@ import '../../models/service_model.dart';
 import 'booking_checkout.dart';
 import '../../widgets/provider_calendar_dialog.dart';
 import '../../widgets/top_banner_notification.dart';
+import '../../widgets/custom_time_picker.dart';
 
 class BookingFormScreen extends StatefulWidget {
   final ServiceModel service;
@@ -68,50 +69,44 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
 Future<void> _selectTime(BuildContext context) async {
-  final TimeOfDay? picked = await showTimePicker(
-    context: context,
-    initialTime: _viewModel.startTime,
-    initialEntryMode: TimePickerEntryMode.inputOnly,
-    builder: (context, child) {
-      return MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child ?? const SizedBox.shrink(),
-      );
-    },
-  );
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return CustomTimePicker(
+          initialTime: _viewModel.startTime,
+          onTimeSelected: (TimeOfDay picked) {
+            if (picked.hour < 6 || picked.hour > 22 || (picked.hour == 22 && picked.minute > 0)) {
+              showTopBanner(context, 'Lỗi', 'Thời gian hoạt động từ 06:00 đến 22:00. Vui lòng chọn giờ khác.');
+              return;
+            }
 
-  if (picked == null) return;
+            final now = DateTime.now();
+            final selectedDateTime = DateTime(
+              _viewModel.startDate.year,
+              _viewModel.startDate.month,
+              _viewModel.startDate.day,
+              picked.hour,
+              picked.minute,
+            );
+            final minDateTime = now.add(const Duration(minutes: 30));
+            final isToday =
+                _viewModel.startDate.year == now.year &&
+                _viewModel.startDate.month == now.month &&
+                _viewModel.startDate.day == now.day;
 
-  if (picked.hour < 6 || picked.hour > 22 || (picked.hour == 22 && picked.minute > 0)) {
-    showTopBanner(context, 'Lỗi', 'Thời gian hoạt động từ 06:00 đến 22:00. Vui lòng chọn giờ khác.');
-    return;
+            if (isToday && selectedDateTime.isBefore(minDateTime)) {
+              showTopBanner(context, 'Lỗi', 'Vui lòng chọn giờ bắt đầu sau ít nhất 30 phút so với hiện tại.');
+              return;
+            }
+
+            _viewModel.setStartTime(picked);
+          },
+        );
+      },
+    );
   }
-
-  final now = DateTime.now();
-
-  final selectedDateTime = DateTime(
-    _viewModel.startDate.year,
-    _viewModel.startDate.month,
-    _viewModel.startDate.day,
-    picked.hour,
-    picked.minute,
-  );
-
-  final minDateTime = now.add(const Duration(minutes: 30));
-
-  final isToday =
-      _viewModel.startDate.year == now.year &&
-      _viewModel.startDate.month == now.month &&
-      _viewModel.startDate.day == now.day;
-
-  if (isToday && selectedDateTime.isBefore(minDateTime)) {
-    showTopBanner(context, 'Lỗi', 'Vui lòng chọn giờ bắt đầu sau ít nhất 30 phút so với hiện tại.');
-    return;
-  }
-
-  _viewModel.setStartTime(picked);
-}
-
  Future<void> _submitBooking() async {
   if (!_formKey.currentState!.validate()) return;
 
@@ -374,7 +369,7 @@ Future<void> _selectTime(BuildContext context) async {
                           // Start Time select
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Giờ bắt đầu làm việc', style: TextStyle(fontWeight: FontWeight.bold, color: darkColor)),
+                            title: const Text('Giờ bắt đầu', style: TextStyle(fontWeight: FontWeight.bold, color: darkColor)),
                             subtitle: Text(
                               '${_viewModel.startTime.hour.toString().padLeft(2, '0')}:${_viewModel.startTime.minute.toString().padLeft(2, '0')}',
                               style: const TextStyle(fontSize: 16, color: orangeColor, fontWeight: FontWeight.bold),
@@ -382,7 +377,7 @@ Future<void> _selectTime(BuildContext context) async {
                             trailing: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(color: orangeColor.withOpacity(0.1), shape: BoxShape.circle),
-                              child: const Icon(Icons.access_time_filled_rounded, color: orangeColor),
+                              child: const Icon(Icons.schedule_rounded, color: orangeColor),
                             ),
                             onTap: () => _selectTime(context),
                           ),
