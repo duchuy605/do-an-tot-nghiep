@@ -83,8 +83,17 @@ class CustomerController {
       throw new Error('Giờ kết thúc phải sau giờ bắt đầu');
     }
 
+    // Tính tổng số giờ của các dịch vụ bổ sung
+    let additionalHours = 0;
+    for (const item of serviceDetails) {
+      if (!item.isMain) {
+        additionalHours += item.service.SoGioQuyDinh * item.quantity;
+      }
+    }
+    const mainServiceHours = Math.max(duration - additionalHours, 1); // Đảm bảo ít nhất 1 giờ cho dịch vụ chính
+
     const detailedServices = serviceDetails.map(item => {
-      const hours = item.isMain ? duration : 1;
+      const hours = item.isMain ? mainServiceHours : (item.service.SoGioQuyDinh * item.quantity);
       const totalServicePrice = parseFloat(item.service.DonGia) * item.quantity * hours;
       return {
         serviceName: item.service.TenDichVu,
@@ -171,10 +180,9 @@ class CustomerController {
       }
       const effectiveTimeSlotCoeff = isRecurring ? 1.0 : timeSlotCoeff;
 
-      // Tính giá: dịch vụ chính × tổng giờ + dịch vụ phụ × 1 giờ
-      const mainPrice = mainServiceRate * duration * durationCoeff;
-      const additionalPrice = additionalServiceRate * 1 * durationCoeff; // Chỉ 1 giờ
-      const sessionBasePrice = mainPrice + additionalPrice;
+      // Tính giá: tổng giá từ detailedServices (đã tính đúng số giờ từng dịch vụ)
+      const baseServicesPrice = detailedServices.reduce((sum, item) => sum + item.price, 0);
+      const sessionBasePrice = baseServicesPrice * durationCoeff;
       let sessionFinalPrice = sessionBasePrice * specialDayCoeff * effectiveTimeSlotCoeff * weekendCoeff;
 
       if (packageDiscountPercent > 0) {
@@ -362,9 +370,14 @@ class CustomerController {
       const price = calculation.totalBookingPrice;
 
       // 2. Kiểm tra ví TRƯỚC khi bắt đầu transaction
-      const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
+      let wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
-        return error(res, 'Không tìm thấy ví tiền. Vui lòng liên hệ hỗ trợ.', 404);
+        wallet = await ViTien.create({
+          MaNguoiDung: customerId,
+          SoDu: 0,
+          LoaiVi: req.user.VaiTro || 1,
+          TrangThai: true
+        });
       }
       if (parseFloat(wallet.SoDu) < price) {
         return error(res, 'Số dư ví không đủ để thanh toán. Vui lòng nạp thêm tiền.', 400, {
@@ -498,7 +511,7 @@ class CustomerController {
           });
         } else {
           // Gửi thông báo chung cho tất cả nhân viên
-          oCamManager.guiThongBaoAdminVaNhanVien({
+          oCamManager.guiThongBaoTatCaNhanVien({
             tieuDe: 'Có đơn đặt lịch mới cần nhận!',
             noiDung: `Khách hàng ${req.user.HoTenNguoiDung} vừa đặt và thanh toán đơn #${booking.MaDatLich}`,
             data: booking
@@ -780,6 +793,12 @@ class CustomerController {
         return error(res, 'Chỉ có thể đổi ca đang chờ xác nhận hoặc đang thực hiện', 400);
       }
 
+      const now = new Date();
+      const currentShiftStart = new Date(`${job.NgayLamViec}T${job.GioBatDau}+07:00`);
+      if (job.ThoiGianBatDauThucTe || now >= currentShiftStart) {
+        return error(res, 'Ca làm việc đã bắt đầu hoặc đã qua giờ bắt đầu, không thể thực hiện đổi lịch.', 400);
+      }
+
       const targetUserId = isCustomerOwner ? job.MaNhanVien : job.MaKhachHang;
       if (!targetUserId) {
         return error(res, 'Ca làm việc chưa có nhân viên nên chưa thể gửi yêu cầu đổi lịch', 400);
@@ -933,6 +952,12 @@ class CustomerController {
 
       if (![0, 1].includes(job.TrangThaiDonHang)) {
         return error(res, 'Chỉ có thể xử lý yêu cầu đổi lịch cho ca chưa hoàn thành hoặc chưa hủy', 400);
+      }
+
+      const now = new Date();
+      const currentShiftStart = new Date(`${job.NgayLamViec}T${job.GioBatDau}+07:00`);
+      if (DongY && (job.ThoiGianBatDauThucTe || now >= currentShiftStart)) {
+        return error(res, 'Ca làm việc đã bắt đầu hoặc đã qua giờ bắt đầu, không thể thực hiện đổi lịch.', 400);
       }
       const ngayMoi = (request.NgayMoi instanceof Date) 
         ? request.NgayMoi.toISOString().split('T')[0] 
@@ -1116,7 +1141,7 @@ class CustomerController {
       });
 
       // Gửi thông báo cho tất cả nhân viên về ca mới
-      oCamManager.guiThongBaoAdminVaNhanVien({
+      oCamManager.guiThongBaoTatCaNhanVien({
         tieuDe: 'Có ca làm việc cần nhận!',
         noiDung: `Ca #${job.MaCaLam} ngày ${job.NgayLamViec} (${job.GioBatDau}-${job.GioKetThuc}) đang cần nhân viên nhận.`,
         data: job
@@ -1155,9 +1180,14 @@ class CustomerController {
 
       const price = parseFloat(booking.GiaGoi);
 
-      const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
+      let wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
-        return error(res, 'Không tìm thấy ví tiền của khách hàng', 404);
+        wallet = await ViTien.create({
+          MaNguoiDung: customerId,
+          SoDu: 0,
+          LoaiVi: req.user.VaiTro || 1,
+          TrangThai: true
+        });
       }
 
       if (parseFloat(wallet.SoDu) < price) {
@@ -1200,7 +1230,7 @@ class CustomerController {
       await tx.commit();
 
       // Gửi thông báo thời gian thực sau khi thanh toán thành công
-      oCamManager.guiThongBaoAdminVaNhanVien({
+      oCamManager.guiThongBaoTatCaNhanVien({
         tieuDe: 'Có đơn đặt lịch mới cần nhận!',
         noiDung: `Khách hàng ${req.user.HoTenNguoiDung} vừa thanh toán đơn đặt lịch #${booking.MaDatLich}`,
         data: booking
@@ -1225,9 +1255,14 @@ class CustomerController {
         return error(res, 'Số tiền nạp tối đa mỗi lần là 10.000.000 VNĐ', 400);
       }
 
-      const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
+      let wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
-        return error(res, 'Không tìm thấy ví tiền của người dùng', 404);
+        wallet = await ViTien.create({
+          MaNguoiDung: customerId,
+          SoDu: 0,
+          LoaiVi: req.user.VaiTro || 1,
+          TrangThai: true
+        });
       }
 
       const newBalance = parseFloat(wallet.SoDu) + parseFloat(SoTien);
@@ -1257,9 +1292,14 @@ class CustomerController {
         await checkAndExecutePayoutsForProvider(customerId);
       }
 
-      const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
+      let wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
-        return error(res, 'Không tìm thấy ví của người dùng', 404);
+        wallet = await ViTien.create({
+          MaNguoiDung: customerId,
+          SoDu: 0,
+          LoaiVi: req.user.VaiTro || 1,
+          TrangThai: true
+        });
       }
       return success(res, wallet, 'Lấy số dư ví thành công');
     } catch (err) {
@@ -1276,9 +1316,14 @@ class CustomerController {
         await checkAndExecutePayoutsForProvider(customerId);
       }
 
-      const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
+      let wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
-        return error(res, 'Không tìm thấy ví của người dùng', 404);
+        wallet = await ViTien.create({
+          MaNguoiDung: customerId,
+          SoDu: 0,
+          LoaiVi: req.user.VaiTro || 1,
+          TrangThai: true
+        });
       }
 
       const history = await LichSuViTien.findAll({

@@ -978,6 +978,14 @@ class AdminController {
       const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000);
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+      const parseDbDate = (dateStr) => {
+        if (!dateStr) return null;
+        if (dateStr instanceof Date) return dateStr;
+        const str = String(dateStr);
+        if (str.includes('+') || str.endsWith('Z')) return new Date(str);
+        return new Date(str.replace(' ', 'T') + '+07:00');
+      };
+
       // Lấy tất cả các ca làm việc hoàn thành, chưa thanh toán
       const pendingShifts = await CaLamViec.findAll({
         where: {
@@ -1002,11 +1010,11 @@ class AdminController {
         // Tính thời gian: NgayHoanThanh -> NgayCapNhat -> NgayLamViec
         let finishDate;
         if (shift.NgayHoanThanh) {
-          finishDate = new Date(shift.NgayHoanThanh);
+          finishDate = parseDbDate(shift.NgayHoanThanh);
         } else if (shift.NgayCapNhat) {
-          finishDate = new Date(shift.NgayCapNhat);
+          finishDate = parseDbDate(shift.NgayCapNhat);
         } else {
-          finishDate = new Date(shift.NgayLamViec + 'T' + shift.GioKetThuc);
+          finishDate = new Date(shift.NgayLamViec + 'T' + shift.GioKetThuc + '+07:00');
         }
 
         if (hasComplaints) {

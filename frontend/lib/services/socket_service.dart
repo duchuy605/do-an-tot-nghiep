@@ -50,24 +50,42 @@ class SocketService {
       });
     });
 
-    // Lắng nghe sự kiện thông báo từ server
-    _socket!.on('thong_bao', (data) {
-      print('Nhận được thông báo mới: $data');
-      if (data != null) {
-        final title = data['tieuDe'] ?? 'Thông báo';
-        final body = data['noiDung'] ?? '';
-        
-        // Hiển thị Banner trên cùng
-        final context = navigatorKey.currentContext;
-        if (context != null) {
-          showTopBanner(context, title, body);
-        }
-      }
-    });
+    // Lắng nghe các sự kiện thông báo từ server
+    _socket!.on('thong_bao', _handleIncomingNotification);
+    _socket!.on('thong_bao_he_thong', _handleIncomingNotification);
+    _socket!.on('thong_bao_admin', _handleIncomingNotification);
+
+    _socket!.on('connect_error', (error) => print('Socket connect_error: $error'));
+    _socket!.on('connect_timeout', (_) => print('Socket connect_timeout'));
+    _socket!.on('reconnect_attempt', (attempt) => print('Socket reconnect_attempt: $attempt'));
+    _socket!.on('reconnect', (attempt) => print('Socket reconnected after $attempt attempts'));
+    _socket!.on('error', (error) => print('Socket error: $error'));
 
     _socket!.onDisconnect((_) {
       print('Socket Disconnected');
     });
+  }
+
+  void _handleIncomingNotification(dynamic data) {
+    print('Nhận được thông báo mới: $data');
+    if (data == null) {
+      print('Notification payload is null');
+      return;
+    }
+    if (data is! Map) {
+      print('Notification payload is not a Map: ${data.runtimeType}');
+      return;
+    }
+
+    final title = data['tieuDe'] ?? 'Thông báo';
+    final body = data['noiDung'] ?? '';
+    final context = navigatorKey.currentContext;
+    if (context == null) {
+      print('SocketService: navigatorKey.currentContext is null, cannot show banner');
+      return;
+    }
+
+    showTopBanner(context, title, body);
   }
 
   /// Ngắt kết nối khi đăng xuất
