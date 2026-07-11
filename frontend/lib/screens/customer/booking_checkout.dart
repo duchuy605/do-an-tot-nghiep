@@ -424,7 +424,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          _buildPromoTag('BTASKEE50', '-50k'),
+                          _buildPromoTag('CleanGo50', '-50k'),
                           const SizedBox(width: 8),
                           _buildPromoTag('NHAMOI', 'Giảm 10%'),
                         ],
