@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { CaLamViec, KhieuNai, ViTien, LichSuViTien } = require('../models');
+const { CaLamViec, KhieuNai, DanhGia, ViTien, LichSuViTien } = require('../models');
 const sequelize = require('../config/database');
 
 /**
@@ -19,14 +19,57 @@ function parseDbDate(dateStr) {
   if (str.includes('+') || str.endsWith('Z')) return new Date(str);
   return new Date(str.replace(' ', 'T') + '+07:00');
 }
+
+function getPrimaryComplaintIdForShift(shift) {
+  if (!shift || !Array.isArray(shift.KhieuNais) || shift.KhieuNais.length === 0) {
+    return null;
+  }
+
+  const sortedComplaints = [...shift.KhieuNais].sort((a, b) => (b.MaKhieuNai || 0) - (a.MaKhieuNai || 0));
+  return sortedComplaints[0]?.MaKhieuNai || null;
+}
+
 async function checkAndExecutePayoutsForProvider(providerId) {
   let tx;
   try {
-    const providerWallet = await ViTien.findOne({ where: { MaNguoiDung: providerId } });
-    if (!providerWallet) return;
+    let providerWallet = await ViTien.findOne({ where: { MaNguoiDung: providerId } });
+    if (!providerWallet) {
+      providerWallet = await ViTien.create({
+        MaNguoiDung: providerId,
+        SoDu: 0,
+        LoaiVi: 2,
+        TrangThai: true
+      });
+    }
 
-    const systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
-    if (!systemWallet) return;
+    let systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
+    if (!systemWallet) {
+      const fallbackWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
+      if (fallbackWallet) {
+        systemWallet = fallbackWallet;
+      } else {
+        const adminUser = await sequelize.models.NguoiDung.findOne({ where: { VaiTro: 3 } });
+        if (adminUser) {
+          let adminWallet = await ViTien.findOne({ where: { MaNguoiDung: adminUser.MaNguoiDung } });
+          if (!adminWallet) {
+            adminWallet = await ViTien.create({
+              MaNguoiDung: adminUser.MaNguoiDung,
+              SoDu: 0,
+              LoaiVi: 3,
+              TrangThai: true
+            });
+          }
+          systemWallet = adminWallet;
+        } else {
+          systemWallet = await ViTien.create({
+            MaNguoiDung: providerId,
+            SoDu: 0,
+            LoaiVi: 3,
+            TrangThai: true
+          });
+        }
+      }
+    }
 
     // Lấy các ca làm việc hoàn thành, chưa thanh toán của nhân viên này
     const pendingShifts = await CaLamViec.findAll({
@@ -35,20 +78,28 @@ async function checkAndExecutePayoutsForProvider(providerId) {
         TrangThaiDonHang: 2, // Hoàn thành
         DaThanhToan: false
       },
-      include: [{
-        model: KhieuNai,
-        as: 'KhieuNais',
-        required: false
-      }]
+      include: [
+        {
+          model: KhieuNai,
+          as: 'KhieuNais',
+          required: false
+        },
+        {
+          model: DanhGia,
+          as: 'DanhGia',
+          required: false
+        }
+      ]
     });
 
     if (pendingShifts.length === 0) return;
 
-    const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000);
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const now = new Date();
 
     const validShifts = pendingShifts.filter(shift => {
-      const hasComplaints = shift.KhieuNais && shift.KhieuNais.length > 0;
+      const complaintId = getPrimaryComplaintIdForShift(shift);
+      const hasComplaints = !!complaintId;
+      const hasReview = !!shift.DanhGia;
       
       // Số tiền giải ngân: nếu TongTienTre null/0, dùng TienNhanVienNhan
       const amount = shift.TongTienTre !== null ? parseFloat(shift.TongTienTre) : parseFloat(shift.TienNhanVienNhan);
@@ -65,16 +116,24 @@ async function checkAndExecutePayoutsForProvider(providerId) {
       }
 
       if (hasComplaints) {
-        // Nếu có khiếu nại, khiếu nại phải được giải quyết xong mới được nhận tiền
-        const allResolved = shift.KhieuNais.every(k => k.TrangThaiXuLy === 2);
+        // Nếu có khiếu nại, phải được giải quyết xong mới được nhận tiền.
+        const allResolved = (shift.KhieuNais || []).every(k => k.TrangThaiXuLy === 2);
         if (!allResolved) return false;
-        // Ghi chú: Nếu Admin đã giải quyết, lập tức cho phép nhận tiền (bỏ chặn 72h)
-      } else {
-        // Nếu không có khiếu nại, giữ đủ 24 tiếng
-        if (finishDate > twentyFourHoursAgo) return false;
       }
 
-      return true;
+      let releaseDate = finishDate;
+      if (hasReview) {
+        // Nếu khách hàng đã đánh giá, tiền sẽ bị giữ lâu hơn để chờ xử lý/đánh giá cuối cùng.
+        const reviewDate = parseDbDate(shift.DanhGia?.NgayDanhGia || shift.NgayHoanThanh || shift.NgayCapNhat || finishDate);
+        const resolvedComplaint = (shift.KhieuNais || []).find(k => k.TrangThaiXuLy === 2);
+        const decisionDate = resolvedComplaint?.NgayXuLy ? parseDbDate(resolvedComplaint.NgayXuLy) : reviewDate;
+        releaseDate = decisionDate || reviewDate || finishDate;
+        releaseDate = new Date(releaseDate.getTime() + 72 * 60 * 60 * 1000);
+      } else {
+        releaseDate = new Date(finishDate.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      return now >= releaseDate;
     });
 
     if (validShifts.length === 0) return;
@@ -100,16 +159,19 @@ async function checkAndExecutePayoutsForProvider(providerId) {
       currentProvBalance += amount;
       currentSysBalance -= amount;
 
+      const complaintId = getPrimaryComplaintIdForShift(shift);
+
       // Ghi lịch sử ví từng ca
       await LichSuViTien.create({
         MaViNguon: systemWallet.MaViTien,
         MaViDich: providerWallet.MaViTien,
         MaCaLam: shift.MaCaLam,
+        MaKhieuNai: complaintId,
         LoaiGiaoDich: 4, // 4: Trả lương nhân viên
         SoTien: amount,
         SoDuSau: currentProvBalance,
         NgayTao: new Date(),
-        NoiDungGiaoDich: `Giải ngân ca làm việc #${shift.MaCaLam}.`
+        NoiDungGiaoDich: `Giải ngân ca làm việc #${shift.MaCaLam}${complaintId ? ` liên quan khiếu nại #${complaintId}` : ''}.`
       }, { transaction: tx });
 
       processedShifts++;
@@ -132,4 +194,4 @@ async function checkAndExecutePayoutsForProvider(providerId) {
   }
 }
 
-module.exports = { checkAndExecutePayoutsForProvider };
+module.exports = { checkAndExecutePayoutsForProvider, getPrimaryComplaintIdForShift };

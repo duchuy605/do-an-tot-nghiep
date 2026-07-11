@@ -420,6 +420,7 @@ class ProviderController {
             MaViNguon: systemWallet.MaViTien,
             MaViDich: adminWallet.MaViTien,
             MaCaLam: caLamId,
+            MaKhieuNai: null,
             LoaiGiaoDich: 5, // 5: Hoa hồng hệ thống
             SoTien: tienSystem,
             SoDuSau: newAdminBalance,
@@ -450,6 +451,12 @@ class ProviderController {
       }
 
       await tx.commit();
+
+      try {
+        await checkAndExecutePayoutsForProvider(providerId);
+      } catch (payoutErr) {
+        console.error('[LỖI KIỂM TRA GIẢI NGÂN SAU HOÀN THÀNH CA]', payoutErr.message);
+      }
 
       const completedJob = await CaLamViec.findByPk(caLamId);
 

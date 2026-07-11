@@ -56,15 +56,14 @@ const { startShiftMonitorCron } = require('./cron/shift_monitor');
 // Khởi chạy tiến trình nhắc nhở nhân viên đi làm / đi trễ
 startShiftMonitorCron();
 
-cron.schedule('*/5 * * * *', async () => {
+async function runPendingPayoutSweep() {
   try {
-    // Lấy danh sách các nhân viên đang có ca làm việc chờ giải ngân
     const pendingProviders = await CaLamViec.findAll({
       where: { TrangThaiDonHang: 2, DaThanhToan: false },
       attributes: ['MaNhanVien'],
       group: ['MaNhanVien']
     });
-    
+
     for (const p of pendingProviders) {
       if (p.MaNhanVien) {
         await checkAndExecutePayoutsForProvider(p.MaNhanVien);
@@ -73,7 +72,9 @@ cron.schedule('*/5 * * * *', async () => {
   } catch (err) {
     console.error('Lỗi khi chạy cron giải ngân tự động:', err);
   }
-});
+}
+
+cron.schedule('*/5 * * * *', runPendingPayoutSweep);
 // Kết nối cơ sở dữ liệu & khởi động server
 const PORT = process.env.PORT || 3000;
 
@@ -83,9 +84,12 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('Kết nối cơ sở dữ liệu MySQL thành công qua Sequelize!');
 
+    // Quét lại các ca làm đã hoàn thành nhưng chưa được giải ngân khi server khởi động
+    await runPendingPayoutSweep();
+
     // Khởi động server
     server.listen(PORT,'0.0.0.0', () => {
-      console.log(` Server đang chạy tại địa chỉ: http://localhost:${PORT}`);
+      console.log(` Server đang chạy tại địa chỉ: http://0.0.0.0:${PORT}`);
     });
   } catch (error) {
     console.error('Không thể kết nối cơ sở dữ liệu MySQL:', error);
