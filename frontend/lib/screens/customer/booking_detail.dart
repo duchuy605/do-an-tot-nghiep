@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../viewmodels/customer/booking_detail_viewmodel.dart';
 import '../../services/api_service.dart';
+import '../../widgets/top_banner_notification.dart';
 import '../../models/booking_model.dart';
 import '../../widgets/provider_calendar_dialog.dart';
 import 'payment_screen.dart';
@@ -481,8 +482,22 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                       title: const Text('Giờ bắt đầu'),
                       subtitle: Text(startTime.format(context)),
                       onTap: () async {
-                        final picked = await showTimePicker(context: context, initialTime: startTime);
+                        final picked = await showTimePicker(
+                          context: context, 
+                          initialTime: startTime,
+                          initialEntryMode: TimePickerEntryMode.inputOnly,
+                          builder: (context, child) {
+                            return MediaQuery(
+                              data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                              child: child ?? const SizedBox.shrink(),
+                            );
+                          },
+                        );
                         if (picked != null) {
+                          if (picked.hour < 6 || picked.hour > 22 || (picked.hour == 22 && picked.minute > 0)) {
+                            showTopBanner(context, 'Lỗi', 'Thời gian hoạt động từ 06:00 đến 22:00. Vui lòng chọn giờ khác.');
+                            return;
+                          }
                           startTime = picked;
                           updateConflict();
                         }

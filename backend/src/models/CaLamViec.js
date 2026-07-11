@@ -97,6 +97,11 @@ CaLamViec.init({
     type: DataTypes.DATE,
     allowNull: true,
     comment: 'Thời điểm nhân viên bấm Hoàn Thành để tính 24h'
+  },
+  ThoiGianBatDauThucTe: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Thời điểm nhân viên thực sự bấm Bắt đầu ca làm'
   }
 
 }, {

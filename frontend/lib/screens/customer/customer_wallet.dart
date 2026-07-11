@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../utils/currency_formatter.dart';
 import '../../viewmodels/customer/customer_wallet_viewmodel.dart';
+import 'booking_detail.dart';
 
 class CustomerWalletScreen extends StatefulWidget {
   const CustomerWalletScreen({super.key});
@@ -340,16 +341,36 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
                                     final double money = double.tryParse(tx['SoTien']?.toString() ?? '0') ?? 0;
                                     final String date = tx['NgayTao'] != null ? tx['NgayTao'].substring(0, 16).replaceAll('T', ' ') : '';
 
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 12),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    return InkWell(
+                                      onTap: () {
+                                        if (tx['MaDatLich'] != null) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => BookingDetailScreen(maDatLich: tx['MaDatLich']),
+                                            ),
+                                          );
+                                        } else if (tx['MaCaLam'] != null) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Giao dịch của ca làm việc #${tx['MaCaLam']}.')),
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Giao dịch này không liên kết với đơn hàng nào.')),
+                                          );
+                                        }
+                                      },
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                        margin: const EdgeInsets.only(bottom: 12),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(16),
+                                          boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,6 +395,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
                                             ),
                                           ),
                                         ],
+                                      ),
                                       ),
                                     );
                                   },

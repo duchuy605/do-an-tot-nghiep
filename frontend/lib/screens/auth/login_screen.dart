@@ -3,6 +3,7 @@ import '../../viewmodels/auth/login_viewmodel.dart';
 import '../customer/customer_main.dart';
 import '../provider/provider_main.dart';
 import '../admin/admin_main.dart';
+import '../../services/socket_service.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -38,6 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (response['success'] == true) {
       final role = response['data']['user']['VaiTro'];
       if (!mounted) return;
+
+      // Khởi tạo Socket sau khi đăng nhập
+      SocketService().initSocket();
 
       if (role == 3) {
         Navigator.pushReplacement(

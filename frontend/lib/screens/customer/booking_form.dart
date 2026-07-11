@@ -4,6 +4,7 @@ import '../../viewmodels/customer/booking_form_viewmodel.dart';
 import '../../models/service_model.dart';
 import 'booking_checkout.dart';
 import '../../widgets/provider_calendar_dialog.dart';
+import '../../widgets/top_banner_notification.dart';
 
 class BookingFormScreen extends StatefulWidget {
   final ServiceModel service;
@@ -68,12 +69,23 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
 
 Future<void> _selectTime(BuildContext context) async {
   final TimeOfDay? picked = await showTimePicker(
-  context: context,
-  initialTime: _viewModel.startTime,
-  initialEntryMode: TimePickerEntryMode.input,
-);
+    context: context,
+    initialTime: _viewModel.startTime,
+    initialEntryMode: TimePickerEntryMode.inputOnly,
+    builder: (context, child) {
+      return MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child ?? const SizedBox.shrink(),
+      );
+    },
+  );
 
   if (picked == null) return;
+
+  if (picked.hour < 6 || picked.hour > 22 || (picked.hour == 22 && picked.minute > 0)) {
+    showTopBanner(context, 'Lỗi', 'Thời gian hoạt động từ 06:00 đến 22:00. Vui lòng chọn giờ khác.');
+    return;
+  }
 
   final now = DateTime.now();
 
@@ -93,13 +105,7 @@ Future<void> _selectTime(BuildContext context) async {
       _viewModel.startDate.day == now.day;
 
   if (isToday && selectedDateTime.isBefore(minDateTime)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Vui lòng chọn giờ bắt đầu sau ít nhất 30 phút so với hiện tại.',
-        ),
-      ),
-    );
+    showTopBanner(context, 'Lỗi', 'Vui lòng chọn giờ bắt đầu sau ít nhất 30 phút so với hiện tại.');
     return;
   }
 
