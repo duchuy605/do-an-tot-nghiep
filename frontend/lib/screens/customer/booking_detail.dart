@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../viewmodels/customer/booking_detail_viewmodel.dart';
 import '../../services/api_service.dart';
+import '../../widgets/top_banner_notification.dart';
 import '../../models/booking_model.dart';
 import '../../widgets/provider_calendar_dialog.dart';
+import '../../widgets/custom_time_picker.dart';
 import 'payment_screen.dart';
 
 class BookingDetailScreen extends StatefulWidget {
@@ -353,7 +355,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
     int durationMins = (oldEndTime.hour - oldStartTime.hour) * 60 + (oldEndTime.minute - oldStartTime.minute);
     bool hasConflict = false;
-    List<CaLamViecModel> allOtherShifts = [];
+    List<Map<String, dynamic>> providerShiftsList = [];
     bool isFetching = true;
 
     void _checkConflict() {
@@ -363,70 +365,66 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       int newEndMins = newStartMins + durationMins;
       String newDateStr = _formatDate(selectedDate);
 
-      for (var s in allOtherShifts) {
-        int status = s.trangThaiDonHang;
-        if (status == 0 || status == 1 || status == 3) {
-          String otherDateStr = s.ngayLamViec;
-          if (otherDateStr.startsWith(newDateStr)) {
-             TimeOfDay otherStart = _parseTimeOfDay(s.gioBatDau);
-             TimeOfDay otherEnd = _parseTimeOfDay(s.gioKetThuc);
-             int otherStartMins = otherStart.hour * 60 + otherStart.minute;
-             int otherEndMins = otherEnd.hour * 60 + otherEnd.minute;
-             
-             if (newStartMins < otherEndMins && otherStartMins < newEndMins) {
-               hasConflict = true;
-               break;
-             }
-          }
+      for (var s in providerShiftsList) {
+        if (s['date'] == newDateStr) {
+           TimeOfDay otherStart = _parseTimeOfDay(s['start']);
+           TimeOfDay otherEnd = _parseTimeOfDay(s['end']);
+           int otherStartMins = otherStart.hour * 60 + otherStart.minute;
+           int otherEndMins = otherEnd.hour * 60 + otherEnd.minute;
+           
+           if (newStartMins < otherEndMins && otherStartMins < newEndMins) {
+             hasConflict = true;
+             break;
+           }
         }
       }
     }
 
-    ApiService.getBookings().then((res) {
-      if (res['success'] == true && res['data'] != null) {
-        final List list = res['data'];
-        for (var b in list) {
-          final bModel = BookingModel.fromJson(b);
-          for (var s in bModel.caLamViecs ?? []) {
-            if (s.maCaLam != shift.maCaLam) {
-               allOtherShifts.add(s);
+    final providerId = shift.maNhanVien;
+
+    void _fetchProviderShifts(Function? callback) {
+      if (providerId == null) {
+        isFetching = false;
+        if (callback != null) callback();
+        return;
+      }
+      ApiService.getProviderBusyDates(providerId).then((res) {
+        if (res['success'] == true && res['data'] != null) {
+          final List list = res['data'];
+          providerShiftsList.clear();
+          for (var item in list) {
+            // Loại bỏ ca hiện tại
+            if (item['id'] != shift.maCaLam) {
+              providerShiftsList.add({
+                'date': item['date'],
+                'start': item['start'],
+                'end': item['end'],
+              });
             }
           }
         }
-      }
-      isFetching = false;
-      _checkConflict();
-    });
+        isFetching = false;
+        _checkConflict();
+        if (callback != null) callback();
+      });
+    }
+
+    _fetchProviderShifts(null);
 
     final confirmed = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          // Gắn callback vào _checkConflict để nó có thể trigger UI update
           void updateConflict() {
             setDialogState(() {
               _checkConflict();
             });
           }
 
-          // Cập nhật lại logic gọi fetch
-          if (isFetching) {
-            ApiService.getBookings().then((res) {
-              if (res['success'] == true && res['data'] != null) {
-                final List list = res['data'];
-                allOtherShifts.clear();
-                for (var b in list) {
-                  final bModel = BookingModel.fromJson(b);
-                  for (var s in bModel.caLamViecs ?? []) {
-                    if (s.maCaLam != shift.maCaLam) {
-                       allOtherShifts.add(s);
-                    }
-                  }
-                }
-              }
-              isFetching = false;
-              updateConflict();
-            });
+          if (isFetching && providerId != null) {
+             _fetchProviderShifts(() {
+               updateConflict();
+             });
           }
 
           return AlertDialog(
@@ -468,7 +466,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                             initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
                             firstDate: DateTime.now(),
                             lastDate: DateTime.now().add(const Duration(days: 180)),
-                            providerShifts: _getMappedShifts(allOtherShifts),
+                            providerShifts: providerShiftsList,
                             plannedStartTime: startTime,
                             plannedDurationHours: durationMins / 60.0,
                           ),
@@ -485,11 +483,20 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                       title: const Text('Giờ bắt đầu'),
                       subtitle: Text(startTime.format(context)),
                       onTap: () async {
-                        final picked = await showTimePicker(context: context, initialTime: startTime);
-                        if (picked != null) {
-                          startTime = picked;
-                          updateConflict();
-                        }
+                        await showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) {
+                            return CustomTimePicker(
+                              initialTime: startTime,
+                              onTimeSelected: (TimeOfDay picked) {
+                                startTime = picked;
+                                updateConflict();
+                              },
+                            );
+                          },
+                        );
                       },
                     ),
                   ],
@@ -507,6 +514,17 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   ),
                 ),
               const SizedBox(height: 8),
+              if (selectedDate == oldDate && startTime == oldStartTime)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                      const SizedBox(width: 4),
+                      const Expanded(child: Text('Vui lòng chọn thời gian khác với lịch cũ để đổi lịch.', style: TextStyle(color: Colors.blue, fontSize: 12))),
+                    ],
+                  ),
+                ),
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
@@ -536,11 +554,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context, null),
               child: const Text('Hủy đổi lịch', style: TextStyle(color: Color(0xFFFF8225))),
             ),
             TextButton(
-              onPressed: hasConflict ? null : () async {
+              onPressed: (hasConflict || (selectedDate == oldDate && startTime == oldStartTime)) ? null : () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -565,7 +583,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   Navigator.pop(context, {'confirmed': true, 'uyQuyen': confirm});
                 }
               },
-              child: Text('Đổi Lịch', style: TextStyle(fontWeight: FontWeight.bold, color: hasConflict ? Colors.grey : const Color(0xFFFF8225))),
+              child: Text('Đổi Lịch', style: TextStyle(fontWeight: FontWeight.bold, color: (hasConflict || (selectedDate == oldDate && startTime == oldStartTime)) ? Colors.grey : const Color(0xFFFF8225))),
             ),
           ],
         );
@@ -1019,11 +1037,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          if (shift.nhanVien != null) ...[
+                                            if (shift.nhanVien != null) ...[
                                             OutlinedButton.icon(
                                               icon: const Icon(Icons.person_remove_rounded, size: 14),
                                               label: const Text('Đổi nhân viên'),
-                                              onPressed: () => _handleChangeProvider(shift.maCaLam),
+                                              onPressed: shift.thoiGianBatDauThucTe == null ? () => _handleChangeProvider(shift.maCaLam) : null,
                                               style: OutlinedButton.styleFrom(
                                                 foregroundColor: Colors.red,
                                                 side: const BorderSide(color: Colors.red),

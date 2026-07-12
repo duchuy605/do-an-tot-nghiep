@@ -61,7 +61,7 @@ class CustomerHomeScreenState extends State<CustomerHomeScreen> {
       },
       {
         'title': 'Giảm ngay 50.000 đ',
-        'desc': 'Trải nghiệm bPay - Nạp tiền ví, thanh toán trực tiếp cực nhanh.',
+        'desc': 'Trải nghiệm CleanGoPay - Nạp tiền ví, thanh toán trực tiếp cực nhanh.',
         'code': 'BTASKEE50',
         'color': const Color(0xFFE6F7FF),
         'textColor': Colors.blue.shade700,
@@ -252,7 +252,7 @@ class CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           const Text(
-                                            'Ví điện tử bPay',
+                                            'Ví điện tử CleanGoPay',
                                             style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500),
                                           ),
                                           const SizedBox(height: 2),

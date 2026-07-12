@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../utils/currency_formatter.dart';
 import '../../viewmodels/provider/provider_wallet_viewmodel.dart';
+import '../../services/api_service.dart';
 
 class ProviderWalletScreen extends StatefulWidget {
   const ProviderWalletScreen({super.key});
@@ -22,6 +23,93 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
 
   void reloadData() {
     _viewModel.loadWalletData();
+  }
+
+  Future<void> _showJobDetail(int maCaLam) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFFFF8225))),
+    );
+
+    final response = await ApiService.getJobDetail(maCaLam);
+    if (!mounted) return;
+    Navigator.pop(context); // close loading
+
+    if (response['success'] == true && response['data'] != null) {
+      final job = response['data'];
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const Text('Chi tiết ca làm việc', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E1E24))),
+              const SizedBox(height: 24),
+              _buildDetailRow(Icons.person, 'Khách hàng', job['KhachHang']?['HoTenNguoiDung'] ?? 'N/A'),
+              const SizedBox(height: 12),
+              _buildDetailRow(Icons.cleaning_services, 'Dịch vụ', job['DichVu'] ?? ''),
+              const SizedBox(height: 12),
+              _buildDetailRow(Icons.calendar_today, 'Ngày làm', job['NgayLamViec'] ?? ''),
+              const SizedBox(height: 12),
+              _buildDetailRow(Icons.access_time, 'Thời gian', '${job['GioBatDau']?.toString().substring(0,5)} - ${job['GioKetThuc']?.toString().substring(0,5)}'),
+              const SizedBox(height: 12),
+              _buildDetailRow(Icons.location_on, 'Địa chỉ', job['KhachHang']?['DiaChi'] ?? 'N/A'),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF8225),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Đóng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Không thể lấy thông tin ca làm việc: ${response['message']}')));
+    }
+  }
+
+  Widget _buildDetailRow(IconData icon, String title, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey.shade600),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              const SizedBox(height: 2),
+              Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF1E1E24))),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -56,9 +144,9 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
   Future<void> _handleWithdraw() async {
     final amountText = _withdrawAmountController.text.trim();
     if (amountText.isEmpty) return;
-    // Loại bỏ dấu chấm hoặc phẩy phân cách hàng nghìn trước khi parse
     final rawAmount = amountText.replaceAll(RegExp(r'[^0-9]'), '');
     final amount = int.tryParse(rawAmount);
+
     if (amount == null || amount < 100000) {
       _showMessageBox('Số tiền rút tối thiểu mỗi lần là 100.000 VNĐ.');
       return;
@@ -160,7 +248,6 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
               TextField(
                 controller: _withdrawAmountController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [CurrencyTextInputFormatter()],
                 autofocus: true,
                 style: const TextStyle(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
@@ -362,16 +449,27 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
                                     final double money = double.tryParse(tx['SoTien']?.toString() ?? '0') ?? 0;
                                     final String date = tx['NgayTao'] != null ? tx['NgayTao'].substring(0, 16).replaceAll('T', ' ') : '';
 
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 12),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    return InkWell(
+                                      onTap: () {
+                                        if (tx['MaCaLam'] != null) {
+                                          _showJobDetail(tx['MaCaLam']);
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Giao dịch này không liên kết với ca làm việc nào.')),
+                                          );
+                                        }
+                                      },
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                        margin: const EdgeInsets.only(bottom: 12),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(16),
+                                          boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,6 +494,7 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
                                             ),
                                           ),
                                         ],
+                                      ),
                                       ),
                                     );
                                   },

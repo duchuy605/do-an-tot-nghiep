@@ -4,6 +4,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/customer/customer_main.dart';
 import 'screens/provider/provider_main.dart';
 import 'screens/admin/admin_main.dart';
+import 'services/socket_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,6 +18,7 @@ class MyApp extends StatelessWidget {
     const orangeColor = Color(0xFFFF8225);
 
     return MaterialApp(
+      navigatorKey: SocketService.navigatorKey,
       title: 'bTaskee Helper',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -53,6 +55,9 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
     if (!mounted) return;
 
     if (token != null && role != null) {
+      // Khởi tạo Socket
+      SocketService().initSocket();
+
       // Token exists, route to dashboard directly
       if (role == 3) {
         Navigator.pushReplacement(

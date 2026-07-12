@@ -143,7 +143,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
           ],
         ),
         content: const Text(
-          'Số dư ví bPay không đủ để thanh toán. Vui lòng nạp thêm tiền.',
+          'Số dư ví CleanGoPay không đủ để thanh toán. Vui lòng nạp thêm tiền.',
           style: TextStyle(height: 1.4, fontSize: 14),
         ),
         actions: [
@@ -250,7 +250,12 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                       // Thời gian
                       _buildInfoRow(Icons.access_time_rounded, 'Khung giờ: $gioBatDau - $gioKetThuc'),
                       const SizedBox(height: 10),
-                      _buildInfoRow(Icons.timelapse_rounded, 'Thời lượng: ${widget.durationHours} giờ/buổi'),
+                      _buildInfoRow(Icons.timelapse_rounded, () {
+                        final h = widget.durationHours.floor();
+                        final m = ((widget.durationHours - h) * 60).round();
+                        final label = (m == 0) ? '$h giờ/buổi' : '$h giờ $m phút/buổi';
+                        return 'Thời lượng: $label';
+                      }()),
                       const SizedBox(height: 10),
 
                       // Ngày
@@ -321,7 +326,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Ví bPay', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: darkColor)),
+                                  const Text('Ví CleanGoPay', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: darkColor)),
                                   const SizedBox(height: 4),
                                   Text(
                                     'Số dư: ${_formatCurrency(_viewModel.walletBalance)}',
@@ -424,7 +429,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          _buildPromoTag('BTASKEE50', '-50k'),
+                          _buildPromoTag('CleanGo50', '-50k'),
                           const SizedBox(width: 8),
                           _buildPromoTag('NHAMOI', 'Giảm 10%'),
                         ],

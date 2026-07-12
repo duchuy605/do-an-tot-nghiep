@@ -292,6 +292,50 @@ class ProviderController {
   }
 
   // ============================================================
+  // POST /provider/jobs/:id/start - Bắt đầu ca làm việc
+  async startJob(req, res, next) {
+    try {
+      const providerId = req.user.MaNguoiDung;
+      const jobId = req.params.id;
+
+      const job = await CaLamViec.findByPk(jobId);
+
+      if (!job) return error(res, 'Công việc không tồn tại', 404);
+      if (job.MaNhanVien !== providerId) return error(res, 'Bạn không có quyền thao tác trên công việc này', 403);
+      if (job.TrangThaiDonHang !== 1) return error(res, 'Công việc chưa được nhận hoặc đã hoàn thành', 400);
+      if (job.ThoiGianBatDauThucTe) return error(res, 'Công việc này đã được bắt đầu rồi', 400);
+
+      // Kiểm tra thời gian
+      const startTime = new Date(`${job.NgayLamViec}T${job.GioBatDau}`);
+      const endTime = new Date(`${job.NgayLamViec}T${job.GioKetThuc}`);
+      const now = new Date();
+      
+      const diffMs = startTime - now;
+      const diffMinutes = diffMs / (1000 * 60);
+
+      if (diffMinutes > 10) {
+        return error(res, `Chỉ có thể bấm Bắt đầu tối đa 10 phút trước giờ làm. Vui lòng quay lại sau!`, 400);
+      }
+
+      if (now > endTime) {
+        return error(res, `Ca làm việc này đã kết thúc vào lúc ${job.GioKetThuc.substring(0,5)}, không thể bấm Bắt đầu nữa.`, 400);
+      }
+
+      await job.update({ ThoiGianBatDauThucTe: now });
+
+      oCamManager.guiThongBaoNguoiDung(job.MaKhachHang, {
+        tieuDe: 'Nhân viên đã bắt đầu công việc',
+        noiDung: `Nhân viên đã bấm Bắt đầu ca làm việc của bạn lúc ${job.GioBatDau.substring(0,5)}.`,
+        data: job
+      });
+
+      return success(res, job, 'Bắt đầu công việc thành công');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // ============================================================
   // POST /provider/jobs/:id/complete - Hoàn thành ca làm + chia hoa hồng 80/20
   // 80% lương → ví nhân viên dọn dẹp
   // 20% hoa hồng → ví hệ thống Admin
@@ -309,6 +353,10 @@ class ProviderController {
 
       if (job.TrangThaiDonHang !== 1) {
         return error(res, 'Chỉ có thể hoàn thành ca làm việc đang ở trạng thái đã nhận', 400);
+      }
+
+      if (!job.ThoiGianBatDauThucTe) {
+        return error(res, 'Bạn chưa nhấn Bắt đầu ca làm việc, không thể Hoàn thành', 400);
       }
 
       // Kiểm tra khoảng thời gian cho phép báo cáo hoàn thành:
@@ -372,6 +420,7 @@ class ProviderController {
             MaViNguon: systemWallet.MaViTien,
             MaViDich: adminWallet.MaViTien,
             MaCaLam: caLamId,
+            MaKhieuNai: null,
             LoaiGiaoDich: 5, // 5: Hoa hồng hệ thống
             SoTien: tienSystem,
             SoDuSau: newAdminBalance,
@@ -402,6 +451,12 @@ class ProviderController {
       }
 
       await tx.commit();
+
+      try {
+        await checkAndExecutePayoutsForProvider(providerId);
+      } catch (payoutErr) {
+        console.error('[LỖI KIỂM TRA GIẢI NGÂN SAU HOÀN THÀNH CA]', payoutErr.message);
+      }
 
       const completedJob = await CaLamViec.findByPk(caLamId);
 

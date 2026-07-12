@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../../viewmodels/customer/customer_notifications_viewmodel.dart';
 
 class CustomerNotificationsScreen extends StatefulWidget {
-  const CustomerNotificationsScreen({super.key});
+  final bool hideAppBar;
+  const CustomerNotificationsScreen({super.key, this.hideAppBar = false});
 
   @override
   State<CustomerNotificationsScreen> createState() => CustomerNotificationsScreenState();
@@ -35,7 +36,7 @@ class CustomerNotificationsScreenState extends State<CustomerNotificationsScreen
 
     return Scaffold(
       backgroundColor: bgColor,
-      appBar: AppBar(
+      appBar: widget.hideAppBar ? null : AppBar(
         title: const Text('Thông Báo', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: darkColor,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../utils/currency_formatter.dart';
 import '../../viewmodels/customer/customer_wallet_viewmodel.dart';
+import 'booking_detail.dart';
 
 class CustomerWalletScreen extends StatefulWidget {
   const CustomerWalletScreen({super.key});
@@ -56,9 +57,9 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
   Future<void> _handleTopUp() async {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) return;
-    // Loại bỏ dấu chấm hoặc phẩy phân cách hàng nghìn trước khi parse
     final rawAmount = amountText.replaceAll(RegExp(r'[^0-9]'), '');
     final amount = int.tryParse(rawAmount);
+
     if (amount == null || amount < 100000) {
       _showMessageBox('Số tiền nạp tối thiểu mỗi lần là 100.000 VNĐ.');
       return;
@@ -107,7 +108,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Nạp Tiền Vào Ví bPay',
+                'Nạp Tiền Vào Ví CleanGoPay',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkColor),
                 textAlign: TextAlign.center,
               ),
@@ -145,7 +146,6 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
               TextField(
                 controller: _amountController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [CurrencyTextInputFormatter()],
                 autofocus: true,
                 style: const TextStyle(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
@@ -183,7 +183,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
       case 1:
         return 'Nạp tiền ví';
       case 2:
-        return 'Thanh toán lịch dọn';
+        return 'Thanh toán lịch đặt';
       case 3:
         return 'Hoàn tiền khiếu nại';
       case 4:
@@ -217,7 +217,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Ví Tiền bPay', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Ví Tiền CleanGoPay', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: darkColor,
         elevation: 0,
@@ -262,7 +262,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    'bPay Wallet',
+                                    'CleanGoPay Wallet',
                                     style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.1),
                                   ),
                                   Icon(Icons.nfc_rounded, color: orangeColor.withOpacity(0.8), size: 28),
@@ -341,16 +341,36 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
                                     final double money = double.tryParse(tx['SoTien']?.toString() ?? '0') ?? 0;
                                     final String date = tx['NgayTao'] != null ? tx['NgayTao'].substring(0, 16).replaceAll('T', ' ') : '';
 
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 12),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    return InkWell(
+                                      onTap: () {
+                                        if (tx['MaDatLich'] != null) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => BookingDetailScreen(maDatLich: tx['MaDatLich']),
+                                            ),
+                                          );
+                                        } else if (tx['MaCaLam'] != null) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Giao dịch của ca làm việc #${tx['MaCaLam']}.')),
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Giao dịch này không liên kết với đơn hàng nào.')),
+                                          );
+                                        }
+                                      },
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                        margin: const EdgeInsets.only(bottom: 12),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(16),
+                                          boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,6 +395,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
                                             ),
                                           ),
                                         ],
+                                      ),
                                       ),
                                     );
                                   },

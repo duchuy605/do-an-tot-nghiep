@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'socket_service.dart';
 
 /// Lớp ApiService chứa tất cả các hàm gọi API đến backend.
 /// Sử dụng thư viện http để gửi request và shared_preferences để lưu token.
@@ -46,13 +47,30 @@ class ApiService {
     return prefs.getString('user_email');
   }
 
+  /// Lưu userId vào bộ nhớ cục bộ
+  static Future<void> saveUserId(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('user_id', id);
+  }
+
+  /// Lấy userId đã lưu
+  static Future<int?> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('user_id');
+  }
+
   /// Xóa toàn bộ thông tin xác thực khi đăng xuất
   /// (token, vai trò, email)
   static Future<void> clearAuth() async {
+    try {
+      SocketService().disconnect();
+    } catch (_) {}
+    
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('jwt_token');
     await prefs.remove('user_role');
     await prefs.remove('user_email');
+    await prefs.remove('user_id');
   }
 
   /// Tạo header chung cho mọi request cần xác thực
@@ -86,6 +104,7 @@ class ApiService {
       await saveToken(token);
       await saveUserRole(user['VaiTro']);
       await saveUserEmail(user['Email']);
+      await saveUserId(user['MaNguoiDung']);
     }
     return data;
   }
@@ -332,7 +351,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  /// Thanh toán đơn đặt lịch bằng ví bPay
+  /// Thanh toán đơn đặt lịch bằng ví CleanGoPay
   /// POST /api/payments
   /// Bảng: DonDatLich, ViTien, LichSuViTien
   /// Tham số: MaDatLich
@@ -346,7 +365,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  /// Nạp tiền vào ví bPay
+  /// Nạp tiền vào ví CleanGoPay
   /// POST /api/wallet/topup
   /// Bảng: ViTien, LichSuViTien
   /// Tham số: SoTien (số tiền muốn nạp)
@@ -359,7 +378,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  /// Lấy thông tin ví bPay (số dư hiện tại)
+  /// Lấy thông tin ví CleanGoPay (số dư hiện tại)
   /// GET /api/wallet
   /// Bảng: ViTien
   /// Trả về: SoDu, LoaiVi, ...
@@ -371,7 +390,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  /// Lấy lịch sử giao dịch ví bPay
+  /// Lấy lịch sử giao dịch ví CleanGoPay
   /// GET /api/wallet/history
   /// Bảng: LichSuViTien
   /// Trả về: danh sách giao dịch (nạp, thanh toán, hoàn tiền, rút tiền, ...)
@@ -533,6 +552,16 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
+  /// Bắt đầu ca làm việc
+  /// POST /api/provider/jobs/:id/start
+  static Future<Map<String, dynamic>> startJob(int id) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/provider/jobs/$id/start'),
+      headers: await _headers(),
+    );
+    return jsonDecode(response.body);
+  }
+
   /// Hoàn thành ca làm việc
   /// POST /api/provider/jobs/:id/complete
   /// Bảng: CaLamViec, ViTien, LichSuViTien
@@ -554,9 +583,9 @@ class ApiService {
   /// Lấy dữ liệu tổng quan dashboard
   /// GET /api/admin/dashboard
   /// Trả về: tổng doanh thu, số đơn, số người dùng, thống kê, ...
-  static Future<Map<String, dynamic>> getDashboard() async {
+  static Future<Map<String, dynamic>> getDashboard({int weekOffset = 0}) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/admin/dashboard'),
+      Uri.parse('$baseUrl/admin/dashboard?weekOffset=$weekOffset'),
       headers: await _headers(),
     );
     return jsonDecode(response.body);

@@ -29,10 +29,41 @@ class CurrencyTextInputFormatter extends TextInputFormatter {
     int value = int.parse(cleanValue);
     String newText = NumberFormat('#,###', 'vi_VN').format(value);
 
-    // Đơn giản nhất: luôn đẩy con trỏ về cuối cùng để tránh lỗi kẹt cursor
+    // Tính toán lại vị trí con trỏ (selection)
+    int selectionIndex = newValue.selection.end;
+    if (selectionIndex < 0) {
+      selectionIndex = newValue.text.length;
+    } else if (selectionIndex > newValue.text.length) {
+      selectionIndex = newValue.text.length;
+    }
+    
+    // Đếm số lượng ký tự không phải số ở bên trái con trỏ trong chuỗi cũ
+    int nonDigitCountBeforeCursor = 0;
+    for (int i = 0; i < selectionIndex; i++) {
+      if (!RegExp(r'[0-9]').hasMatch(newValue.text[i])) {
+        nonDigitCountBeforeCursor++;
+      }
+    }
+    
+    // Số lượng chữ số thực sự ở bên trái con trỏ
+    int digitCountBeforeCursor = selectionIndex - nonDigitCountBeforeCursor;
+    
+    // Tìm vị trí con trỏ mới trong chuỗi newText
+    int newSelectionIndex = 0;
+    int currentDigitCount = 0;
+    for (int i = 0; i < newText.length; i++) {
+      if (currentDigitCount == digitCountBeforeCursor) {
+        break;
+      }
+      if (RegExp(r'[0-9]').hasMatch(newText[i])) {
+        currentDigitCount++;
+      }
+      newSelectionIndex++;
+    }
+
     return TextEditingValue(
       text: newText,
-      selection: TextSelection.collapsed(offset: newText.length),
+      selection: TextSelection.collapsed(offset: newSelectionIndex),
     );
   }
 }

@@ -43,6 +43,9 @@ class CustomerWalletViewModel extends ChangeNotifier {
 
     try {
       final response = await ApiService.topupWallet(amount);
+      if (response['success'] == true) {
+        await loadWalletData();
+      }
       _isLoading = false;
       notifyListeners();
       return response;

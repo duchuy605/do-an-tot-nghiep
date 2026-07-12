@@ -125,16 +125,16 @@ class OCamManager {
     }
   }
 
-  // Send to admins & providers
-  async guiThongBaoAdminVaNhanVien({ tieuDe, noiDung, data = null }) {
-    console.log(`Emitting to Admins & Providers: ${tieuDe} - ${noiDung}`);
+  // Send to all providers only
+  async guiThongBaoTatCaNhanVien({ tieuDe, noiDung, data = null }) {
+    console.log(`Emitting to Providers only: ${tieuDe} - ${noiDung}`);
     
     try {
-      // Tìm tất cả quản trị viên and providers in DB
+      // Tìm tất cả providers in DB
       const { Op } = require('sequelize');
       const recipients = await NguoiDung.findAll({
         where: {
-          VaiTro: { [Op.in]: [2, 3] }
+          VaiTro: 2
         }
       });
 
@@ -149,7 +149,7 @@ class OCamManager {
       }
 
       if (this.io) {
-        this.io.to('admins').to('providers').emit('thong_bao_he_thong', {
+        this.io.to('providers').emit('thong_bao_he_thong', {
           tieuDe,
           noiDung,
           data

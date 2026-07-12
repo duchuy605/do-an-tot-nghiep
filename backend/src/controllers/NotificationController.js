@@ -4,9 +4,22 @@ const { success, error } = require('../utils/phan_hoi');
 class NotificationController {
   async getNotifications(req, res, next) {
     try {
+      const { Op } = require('sequelize');
       const userId = req.user.MaNguoiDung;
+      const vaiTro = req.user.VaiTro;
+      
+      const whereCondition = { MaNguoiDung: userId };
+      
+      // Nếu là Admin (VaiTro === 3), chỉ hiển thị thông báo khiếu nại và đi trễ
+      if (vaiTro === 3) {
+        whereCondition[Op.or] = [
+          { TieuDe: { [Op.like]: '%Khiếu nại%' } },
+          { TieuDe: { [Op.like]: '%đi trễ%' } }
+        ];
+      }
+
       const notifications = await ThongBao.findAll({
-        where: { MaNguoiDung: userId },
+        where: whereCondition,
         order: [['MaThongBao', 'DESC']]
       });
       return success(res, notifications, 'Lấy danh sách thông báo thành công');

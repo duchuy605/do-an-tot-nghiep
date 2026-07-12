@@ -133,6 +133,7 @@ class CaLamViecModel {
   final UserModel? nhanVien;
   final bool daDanhGia;
   final bool daKhieuNai;
+  final String? thoiGianBatDauThucTe;
   final List<LichSuDoiLichModel> lichSuDoiLichs;
 
   CaLamViecModel({
@@ -154,6 +155,7 @@ class CaLamViecModel {
     this.nhanVien,
     this.daDanhGia = false,
     this.daKhieuNai = false,
+    this.thoiGianBatDauThucTe,
     this.lichSuDoiLichs = const [],
   });
 
@@ -178,6 +180,7 @@ class CaLamViecModel {
       nhanVien: json['NhanVien'] != null ? UserModel.fromJson(json['NhanVien']) : null,
       daDanhGia: json['DanhGia'] != null,
       daKhieuNai: json['KhieuNais'] != null && (json['KhieuNais'] as List).isNotEmpty,
+      thoiGianBatDauThucTe: json['ThoiGianBatDauThucTe'],
       lichSuDoiLichs: requestList != null
           ? requestList.map((e) => LichSuDoiLichModel.fromJson(e)).toList()
           : const [],

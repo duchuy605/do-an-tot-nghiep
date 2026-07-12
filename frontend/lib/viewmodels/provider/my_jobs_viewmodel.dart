@@ -39,6 +39,22 @@ class MyJobsViewModel extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>> startJob(int caLamId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.startJob(caLamId);
+      _isLoading = false;
+      notifyListeners();
+      return response;
+    } catch (_) {
+      _isLoading = false;
+      notifyListeners();
+      return {'success': false, 'message': 'Lỗi kết nối.'};
+    }
+  }
+
   Future<Map<String, dynamic>> completeJob(int caLamId) async {
     _isLoading = true;
     notifyListeners();

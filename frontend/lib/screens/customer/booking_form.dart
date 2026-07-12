@@ -4,6 +4,8 @@ import '../../viewmodels/customer/booking_form_viewmodel.dart';
 import '../../models/service_model.dart';
 import 'booking_checkout.dart';
 import '../../widgets/provider_calendar_dialog.dart';
+import '../../widgets/top_banner_notification.dart';
+import '../../widgets/custom_time_picker.dart';
 
 class BookingFormScreen extends StatefulWidget {
   final ServiceModel service;
@@ -67,45 +69,44 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
 Future<void> _selectTime(BuildContext context) async {
-  final TimeOfDay? picked = await showTimePicker(
-  context: context,
-  initialTime: _viewModel.startTime,
-  initialEntryMode: TimePickerEntryMode.input,
-);
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return CustomTimePicker(
+          initialTime: _viewModel.startTime,
+          onTimeSelected: (TimeOfDay picked) {
+            if (picked.hour < 6 || picked.hour > 22 || (picked.hour == 22 && picked.minute > 0)) {
+              showTopBanner(context, 'Lỗi', 'Thời gian hoạt động từ 06:00 đến 22:00. Vui lòng chọn giờ khác.');
+              return;
+            }
 
-  if (picked == null) return;
+            final now = DateTime.now();
+            final selectedDateTime = DateTime(
+              _viewModel.startDate.year,
+              _viewModel.startDate.month,
+              _viewModel.startDate.day,
+              picked.hour,
+              picked.minute,
+            );
+            final minDateTime = now.add(const Duration(minutes: 30));
+            final isToday =
+                _viewModel.startDate.year == now.year &&
+                _viewModel.startDate.month == now.month &&
+                _viewModel.startDate.day == now.day;
 
-  final now = DateTime.now();
+            if (isToday && selectedDateTime.isBefore(minDateTime)) {
+              showTopBanner(context, 'Lỗi', 'Vui lòng chọn giờ bắt đầu sau ít nhất 30 phút so với hiện tại.');
+              return;
+            }
 
-  final selectedDateTime = DateTime(
-    _viewModel.startDate.year,
-    _viewModel.startDate.month,
-    _viewModel.startDate.day,
-    picked.hour,
-    picked.minute,
-  );
-
-  final minDateTime = now.add(const Duration(minutes: 30));
-
-  final isToday =
-      _viewModel.startDate.year == now.year &&
-      _viewModel.startDate.month == now.month &&
-      _viewModel.startDate.day == now.day;
-
-  if (isToday && selectedDateTime.isBefore(minDateTime)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Vui lòng chọn giờ bắt đầu sau ít nhất 30 phút so với hiện tại.',
-        ),
-      ),
+            _viewModel.setStartTime(picked);
+          },
+        );
+      },
     );
-    return;
   }
-
-  _viewModel.setStartTime(picked);
-}
-
  Future<void> _submitBooking() async {
   if (!_formKey.currentState!.validate()) return;
 
@@ -172,7 +173,7 @@ Future<void> _selectTime(BuildContext context) async {
         bookingData: bookingData,
         mainService: widget.service,
         additionalServices: additionalServices,
-        durationHours: _viewModel.durationHours,
+        durationHours: _viewModel.totalDurationHours,
         bookingType: _viewModel.bookingType,
       ),
     ),
@@ -368,7 +369,7 @@ Future<void> _selectTime(BuildContext context) async {
                           // Start Time select
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Giờ bắt đầu làm việc', style: TextStyle(fontWeight: FontWeight.bold, color: darkColor)),
+                            title: const Text('Giờ bắt đầu', style: TextStyle(fontWeight: FontWeight.bold, color: darkColor)),
                             subtitle: Text(
                               '${_viewModel.startTime.hour.toString().padLeft(2, '0')}:${_viewModel.startTime.minute.toString().padLeft(2, '0')}',
                               style: const TextStyle(fontSize: 16, color: orangeColor, fontWeight: FontWeight.bold),
@@ -376,7 +377,7 @@ Future<void> _selectTime(BuildContext context) async {
                             trailing: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(color: orangeColor.withOpacity(0.1), shape: BoxShape.circle),
-                              child: const Icon(Icons.access_time_filled_rounded, color: orangeColor),
+                              child: const Icon(Icons.schedule_rounded, color: orangeColor),
                             ),
                             onTap: () => _selectTime(context),
                           ),
@@ -607,7 +608,7 @@ Future<void> _selectTime(BuildContext context) async {
                                       // Hiển thị cố định 1 giờ khi đã chọn
                                       if (isSelected)
                                         Text(
-                                          '1 giờ',
+                                          '${svc.soGioQuyDinh} giờ',
                                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: orangeColor),
                                         ),
                                     ],
@@ -617,6 +618,36 @@ Future<void> _selectTime(BuildContext context) async {
                                   }).toList(),
                                   const SizedBox(height: 4),
                                   const Divider(),
+
+                                  // Banner tổng thời gian khi có dịch vụ bổ sung
+                                  if (_viewModel.selectedAdditionalServices.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Builder(builder: (ctx) {
+                                      final total = _viewModel.totalDurationHours;
+                                      final extra = total - _viewModel.baseDurationHours;
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: orangeColor.withOpacity(0.07),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: orangeColor.withOpacity(0.3)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.access_time_rounded, size: 18, color: orangeColor),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Tổng thời gian: ${_formatDuration(total)}  (+${_formatDuration(extra)} dịch vụ bổ sung)',
+                                                style: const TextStyle(fontSize: 13, color: orangeColor, fontWeight: FontWeight.w600),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                    const SizedBox(height: 4),
+                                  ],
                                 ],
                               );
                             },
@@ -685,7 +716,8 @@ Future<void> _selectTime(BuildContext context) async {
                             final name = provider['HoTenNguoiDung'] ?? 'Nhân viên';
                             final hoSo = provider['HoSoNhanVien'];
                             final soGio = hoSo != null ? (hoSo['SoGioLamViec'] ?? 0) : 0;
-                            final rating = hoSo != null ? (hoSo['SoSaoTrungBinh'] ?? 0) : 0;
+                            final ratingRaw = hoSo != null ? (hoSo['SoSaoTrungBinh'] ?? 5.0) : 5.0;
+                            final rating = double.tryParse(ratingRaw.toString())?.toStringAsFixed(1) ?? '5.0';
                             final soDienThoai = provider['SoDienThoai'] ?? 'Không có';
                             print(provider['GioiTinh']);
                             print(provider['GioiTinh'].runtimeType);  
