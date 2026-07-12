@@ -1037,11 +1037,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          if (shift.nhanVien != null) ...[
+                                            if (shift.nhanVien != null) ...[
                                             OutlinedButton.icon(
                                               icon: const Icon(Icons.person_remove_rounded, size: 14),
                                               label: const Text('Đổi nhân viên'),
-                                              onPressed: () => _handleChangeProvider(shift.maCaLam),
+                                              onPressed: shift.thoiGianBatDauThucTe == null ? () => _handleChangeProvider(shift.maCaLam) : null,
                                               style: OutlinedButton.styleFrom(
                                                 foregroundColor: Colors.red,
                                                 side: const BorderSide(color: Colors.red),
