@@ -1191,8 +1191,8 @@ class CustomerController {
       const customerId = req.user.MaNguoiDung;
       const { SoTien } = req.body;
 
-      if (SoTien <= 0) {
-        return error(res, 'Số tiền nạp phải lớn hơn 0', 400);
+      if (SoTien < 100000) {
+        return error(res, 'Số tiền nạp tối thiểu mỗi lần là 100.000 VNĐ', 400);
       }
       if (SoTien > 10000000) {
         return error(res, 'Số tiền nạp tối đa mỗi lần là 10.000.000 VNĐ', 400);

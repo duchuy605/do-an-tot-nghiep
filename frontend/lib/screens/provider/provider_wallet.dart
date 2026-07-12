@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../utils/currency_formatter.dart';
 import '../../viewmodels/provider/provider_wallet_viewmodel.dart';
 
 class ProviderWalletScreen extends StatefulWidget {
@@ -30,29 +31,45 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
     super.dispose();
   }
 
+  void _showMessageBox(String message, {bool isSuccess = false}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(isSuccess ? Icons.check_circle : Icons.error, color: isSuccess ? Colors.green : Colors.red),
+            const SizedBox(width: 8),
+            Text(isSuccess ? 'Thành công' : 'Lỗi'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleWithdraw() async {
     final amountText = _withdrawAmountController.text.trim();
     if (amountText.isEmpty) return;
 
     final amount = int.tryParse(amountText);
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập số tiền hợp lệ.')),
-      );
+    if (amount == null || amount < 100000) {
+      _showMessageBox('Số tiền rút tối thiểu mỗi lần là 100.000 VNĐ.');
       return;
     }
 
     if (amount > 10000000) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Số tiền rút tối đa mỗi lần là 10.000.000 VNĐ.'), backgroundColor: Colors.red),
-      );
+      _showMessageBox('Số tiền rút tối đa mỗi lần là 10.000.000 VNĐ.');
       return;
     }
 
     if (amount > _viewModel.balance) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Số dư ví không đủ để rút.'), backgroundColor: Colors.red),
-      );
+      _showMessageBox('Số dư ví không đủ để rút.');
       return;
     }
 
@@ -63,14 +80,10 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
 
     if (response['success'] == true) {
       _withdrawAmountController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Rút tiền từ ví thành công!'), backgroundColor: Colors.green),
-      );
+      _showMessageBox('Rút tiền từ ví thành công!', isSuccess: true);
       _viewModel.loadWalletData();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? 'Rút tiền thất bại.')),
-      );
+      _showMessageBox(response['message'] ?? 'Rút tiền thất bại.');
     }
   }
 
@@ -121,18 +134,18 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
                       : '${(amt / 1000).toStringAsFixed(0)}k đ';
                   return ChoiceChip(
                     label: Text(label),
-                    selected: _withdrawAmountController.text == amt.toString(),
+                    selected: _withdrawAmountController.text.replaceAll(RegExp(r'[^0-9]'), '') == amt.toString(),
                     selectedColor: orangeColor.withOpacity(0.15),
                     checkmarkColor: orangeColor,
                     labelStyle: TextStyle(
-                      color: _withdrawAmountController.text == amt.toString() ? orangeColor : darkColor,
+                      color: _withdrawAmountController.text.replaceAll(RegExp(r'[^0-9]'), '') == amt.toString() ? orangeColor : darkColor,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
                     onSelected: (selected) {
                       setSheetState(() {
                         if (selected) {
-                          _withdrawAmountController.text = amt.toString();
+                          _withdrawAmountController.text = NumberFormat('#,###', 'vi_VN').format(amt);
                         } else {
                           _withdrawAmountController.clear();
                         }
@@ -146,12 +159,13 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
               TextField(
                 controller: _withdrawAmountController,
                 keyboardType: TextInputType.number,
+                inputFormatters: [CurrencyTextInputFormatter()],
                 autofocus: true,
                 style: const TextStyle(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
                   labelText: 'Số tiền muốn rút (đ)',
-                  hintText: 'Ví dụ: 200000',
-                  prefixIcon: const Icon(Icons.account_balance_outlined, color: orangeColor),
+                  hintText: 'Ví dụ: 200.000',
+                  prefixIcon: const Icon(Icons.monetization_on_outlined, color: orangeColor),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: orangeColor, width: 1.5)),
                 ),
@@ -190,6 +204,8 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
         return 'Thu nhập ca làm việc';
       case 6:
         return 'Rút tiền ví';
+      case 7:
+        return 'Trừ tiền phạt';
       default:
         return 'Giao dịch ví';
     }
@@ -199,7 +215,7 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
     if (type == 4 || type == 1 || type == 3) {
       return Colors.green;
     }
-    // type 2 (thanh toán), type 6 (rút tiền) = red
+    // type 2 (thanh toán), type 6 (rút tiền), type 7 (phạt) = red
     return Colors.red;
   }
 

@@ -63,16 +63,28 @@ class CustomerBookingsScreenState extends State<CustomerBookingsScreen> with Sin
     return '${NumberFormat('#,###', 'vi_VN').format(amount.toInt())} đ';
   }
 
+  bool _isWithin24Hours(String ngayLamViec, String gioKetThuc) {
+    try {
+      final dateStr = ngayLamViec.contains('T') ? ngayLamViec.split('T')[0] : ngayLamViec.split(' ')[0];
+      final timeStr = gioKetThuc.length == 5 ? '$gioKetThuc:00' : gioKetThuc;
+      final endDateTime = DateTime.parse('$dateStr $timeStr');
+      final now = DateTime.now();
+      return now.difference(endDateTime).inHours <= 24;
+    } catch (e) {
+      return true;
+    }
+  }
+
   // Kiểm tra đơn có ca hoàn thành nào chưa đánh giá không
   bool _hasUnreviewedShifts(BookingModel booking) {
     if (booking.caLamViecs == null) return false;
-    return booking.caLamViecs!.any((ca) => ca.trangThaiDonHang == 2 && !ca.daDanhGia);
+    return booking.caLamViecs!.any((ca) => ca.trangThaiDonHang == 2 && !ca.daDanhGia && _isWithin24Hours(ca.ngayLamViec, ca.gioKetThuc));
   }
 
   // Kiểm tra đơn có ca hoàn thành nào chưa khiếu nại không
   bool _hasUnComplainedShifts(BookingModel booking) {
     if (booking.caLamViecs == null) return false;
-    return booking.caLamViecs!.any((ca) => ca.trangThaiDonHang == 2 && !ca.daKhieuNai);
+    return booking.caLamViecs!.any((ca) => ca.trangThaiDonHang == 2 && !ca.daKhieuNai && _isWithin24Hours(ca.ngayLamViec, ca.gioKetThuc));
   }
 
   Widget _buildBookingCard(BookingModel booking, Color orangeColor, Color darkColor, {bool showActions = false}) {

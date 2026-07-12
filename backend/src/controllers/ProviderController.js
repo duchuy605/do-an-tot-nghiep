@@ -424,8 +424,8 @@ class ProviderController {
       const { SoTien } = req.body;
       const amount = parseFloat(SoTien);
 
-      if (!amount || amount <= 0) {
-        return error(res, 'Số tiền rút phải lớn hơn 0', 400);
+      if (!amount || amount < 100000) {
+        return error(res, 'Số tiền rút tối thiểu mỗi lần là 100.000 VNĐ', 400);
       }
       if (amount > 10000000) {
         return error(res, 'Số tiền rút tối đa mỗi lần là 10.000.000 VNĐ', 400);
