@@ -2,7 +2,17 @@ import 'package:flutter/material.dart';
 
 void showTopBanner(BuildContext context, String title, String body, {VoidCallback? onTap}) {
   final overlay = Navigator.of(context).overlay;
-  if (overlay == null) return;
+  if (overlay == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$title\n$body'),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+    return;
+  }
 
   late OverlayEntry overlayEntry;
 

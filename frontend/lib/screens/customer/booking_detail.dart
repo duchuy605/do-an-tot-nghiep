@@ -1054,10 +1054,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                           OutlinedButton.icon(
                                             icon: const Icon(Icons.event_repeat_rounded, size: 14),
                                             label: const Text('Đổi Lịch'),
-                                            onPressed: () => _showRescheduleDialog(shift),
+                                            onPressed: shift.thoiGianBatDauThucTe == null ? () => _showRescheduleDialog(shift) : null,
                                             style: OutlinedButton.styleFrom(
-                                              foregroundColor: orangeColor,
-                                              side: const BorderSide(color: orangeColor),
+                                              foregroundColor: shift.thoiGianBatDauThucTe == null ? orangeColor : Colors.grey,
+                                              side: BorderSide(color: shift.thoiGianBatDauThucTe == null ? orangeColor : Colors.grey),
                                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                             ),

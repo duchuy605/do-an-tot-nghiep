@@ -5,6 +5,23 @@ const oCamManager = require('../sockets/o_cam_manager');
 let isRunning = false;
 let cronScheduled = false;
 
+// In-memory sets to track notifications to avoid adding db columns
+const notified15m = new Set();
+const notifiedLate = new Set();
+let lastDateString = '';
+
+function getReminderWindowState(startTime, now) {
+  const diffMs = startTime.getTime() - now.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const reminderWindowStart = 0;
+  const reminderWindowEnd = 15 * 60;
+
+  return {
+    diffSeconds,
+    shouldSendReminder: diffSeconds >= reminderWindowStart && diffSeconds <= reminderWindowEnd
+  };
+}
+
 function startShiftMonitorCron() {
   if (cronScheduled) {
     console.log('[SHIFT MONITOR] startShiftMonitorCron called again, skipping duplicate schedule');
@@ -16,17 +33,24 @@ function startShiftMonitorCron() {
   // Chạy mỗi phút 1 lần
   cron.schedule('* * * * *', async () => {
     if (isRunning) {
-    
       return;
     }
 
     isRunning = true;
     const runStart = Date.now();
     try {
-      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-      
-      // Lấy tất cả ca làm việc trong ngày hôm nay theo giờ VN
-      const today = now.toISOString().split('T')[0];
+      const tzOffset = 7 * 60 * 60 * 1000;
+      const nowVN = new Date(Date.now() + tzOffset);
+      const today = nowVN.toISOString().split('T')[0];
+
+      // Reset cache when date changes
+      if (today !== lastDateString) {
+        notified15m.clear();
+        notifiedLate.clear();
+        lastDateString = today;
+      }
+
+      const now = new Date();
       
       const shifts = await CaLamViec.findAll({
         where: {
@@ -40,36 +64,37 @@ function startShiftMonitorCron() {
         // Dùng giờ VN để tính thời gian bắt đầu ca
         const startTimeStr = `${shift.NgayLamViec}T${shift.GioBatDau}+07:00`;
         const startTime = new Date(startTimeStr);
-        const diffMs = startTime - now;
-        const diffSeconds = Math.floor(diffMs / 1000);
+        const { diffSeconds, shouldSendReminder } = getReminderWindowState(startTime, now);
 
-
-        const reminderWindowStart = 14 * 60;
-        const reminderWindowEnd = 16 * 60;
         const lateWindowStart = -16 * 60;
         const lateWindowEnd = -14 * 60;
 
-        // 1. Nhắc nhở Nhân viên trước 15 phút
-        if (diffSeconds >= reminderWindowStart && diffSeconds <= reminderWindowEnd) {
+        // 1. Nhắc nhở Nhân viên trước 15 phút (chỉ gửi 1 lần)
+        if (shouldSendReminder && !notified15m.has(shift.MaCaLam)) {
           console.log('[thong bao] Sending 15-minute reminder to provider', shift.MaNhanVien, 'for shift', shift.MaCaLam, 'diffSeconds', diffSeconds);
           oCamManager.guiThongBaoNguoiDung(shift.MaNhanVien, {
             tieuDe: 'Sắp bắt đầu ca làm việc',
             noiDung: `Bạn có ca làm việc sẽ bắt đầu sau 15 phút nữa (lúc ${shift.GioBatDau.substring(0,5)}). Hãy chuẩn bị và nhớ nhấn "Bắt đầu" nhé!`,
             data: shift
           });
-        } ;
+
+          notified15m.add(shift.MaCaLam);
+        }
 
         // 2. Nhắc nhở Admin nếu nhân viên trễ 15 phút chưa bấm "Bắt đầu"
-        if (diffSeconds >= lateWindowStart && diffSeconds <= lateWindowEnd && !shift.ThoiGianBatDauThucTe) {
+        if (diffSeconds >= lateWindowStart && diffSeconds <= lateWindowEnd && !shift.ThoiGianBatDauThucTe && !notifiedLate.has(shift.MaCaLam)) {
           const provider = await NguoiDung.findByPk(shift.MaNhanVien);
           const providerName = provider ? provider.HoTenNguoiDung : 'Không rõ';
           
+          console.log('[thong bao] Sending late shift alert to Admin for shift', shift.MaCaLam, 'diffSeconds', diffSeconds);
           oCamManager.guiThongBaoAdmin({
             tieuDe: 'Nhân viên có thể đi trễ',
             noiDung: `Nhân viên ${providerName} vẫn chưa bấm "Bắt đầu" cho ca làm việc #${shift.MaCaLam} (Giờ bắt đầu: ${shift.GioBatDau.substring(0,5)}). Đã trễ 15 phút!`,
             data: shift
           });
-        } ;
+
+          notifiedLate.add(shift.MaCaLam);
+        }
       }
 
       const runDuration = Date.now() - runStart;
@@ -81,4 +106,5 @@ function startShiftMonitorCron() {
   });
 }
 
-module.exports = { startShiftMonitorCron };
+module.exports = { startShiftMonitorCron, getReminderWindowState };
+

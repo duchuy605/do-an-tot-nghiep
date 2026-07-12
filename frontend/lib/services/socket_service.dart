@@ -68,24 +68,14 @@ class SocketService {
 
   void _handleIncomingNotification(dynamic data) {
     print('Nhận được thông báo mới: $data');
-    if (data == null) {
-      print('Notification payload is null');
-      return;
-    }
-    if (data is! Map) {
-      print('Notification payload is not a Map: ${data.runtimeType}');
-      return;
-    }
+    if (data == null || data is! Map) return;
 
     final title = data['tieuDe'] ?? 'Thông báo';
     final body = data['noiDung'] ?? '';
     final context = navigatorKey.currentContext;
-    if (context == null) {
-      print('SocketService: navigatorKey.currentContext is null, cannot show banner');
-      return;
+    if (context != null) {
+      showTopBanner(context, title, body);
     }
-
-    showTopBanner(context, title, body);
   }
 
   /// Ngắt kết nối khi đăng xuất

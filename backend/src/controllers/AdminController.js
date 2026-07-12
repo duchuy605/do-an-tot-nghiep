@@ -830,7 +830,7 @@ class AdminController {
         const caLam = await CaLamViec.findByPk(complaint.MaCaLam);
         if (caLam) {
           const providerReceived = parseFloat(caLam.TongTien) - (parseFloat(caLam.TienHeThongNhan) || 0);
-          const defaultPenalty = providerReceived * 0.20; // 20% số tiền nhân viên nhận được
+          const defaultPenalty = isRefund ? parseFloat(caLam.TongTien) : (providerReceived * 0.20);
           
           const amount = SoTienDenBu ? parseFloat(SoTienDenBu) : defaultPenalty;
 
@@ -866,9 +866,9 @@ class AdminController {
                 SoDuSau: newProvBalance,
                 NgayTao: new Date()
               }, { transaction: tx });
-            } else if (caLam.TongTienTre !== null) {
+            } else {
               // Trường hợp 2: Chưa thanh toán -> Trừ bớt tiền đang chờ duyệt (pending payout) của nhân viên
-              const currentPending = parseFloat(caLam.TongTienTre);
+              const currentPending = caLam.TongTienTre !== null ? parseFloat(caLam.TongTienTre) : parseFloat(caLam.TienNhanVienNhan);
               providerPenalty = Math.min(amount, currentPending);
               const remainingPending = currentPending - providerPenalty;
               await caLam.update({ TongTienTre: remainingPending }, { transaction: tx });
