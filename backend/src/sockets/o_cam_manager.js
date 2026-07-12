@@ -80,6 +80,14 @@ class OCamManager {
         NgayTao: new Date().toISOString().split('T')[0],
         TrangThaiThongBao: false
       });
+
+      const connectedSockets = this.userSockets.get(userId);
+      const hasConnectedSocket = connectedSockets && connectedSockets.size > 0;
+
+      if (!hasConnectedSocket) {
+        console.log(`[SOCKET] User #${userId} has no active socket connection. Notification saved to DB only.`);
+        return;
+      }
       
       if (this.io) {
         this.io.to(`user_${userId}`).emit('thong_bao', {
