@@ -38,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (response['success'] == true) {
       final role = response['data']['user']['VaiTro'];
-      if (!mounted) return;
+      if (!mounted) return; // Chống lỗi ( văng crash app. Nếu người dùng out khỏi)
 
       // Khởi tạo Socket sau khi đăng nhập
       SocketService().initSocket();

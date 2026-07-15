@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../utils/currency_formatter.dart';
 import '../../viewmodels/provider/provider_wallet_viewmodel.dart';
@@ -248,6 +249,10 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
               TextField(
                 controller: _withdrawAmountController,
                 keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  CurrencyTextInputFormatter(),
+                ],
                 autofocus: true,
                 style: const TextStyle(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
@@ -370,7 +375,7 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    'bTaskee Helper Card',
+                                    'CleanGo Helper Card',
                                     style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.1),
                                   ),
                                   Icon(Icons.nfc_rounded, color: Colors.white.withOpacity(0.8), size: 28),

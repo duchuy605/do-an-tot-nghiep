@@ -91,7 +91,7 @@ class BookingFormViewModel extends ChangeNotifier {
   /// Thiết lập ID dịch vụ chính và tự động gọi API tính toán lại giá tiền tạm tính
   void setMainServiceId(int id) {
     _mainServiceId = id;
-    _triggerPreviewPrice();
+    _triggerPreviewPrice();// tính tiền tạm tính
   }
 
   /// Kích hoạt việc gọi API để lấy báo giá tạm tính (Preview Price)
@@ -99,8 +99,10 @@ class BookingFormViewModel extends ChangeNotifier {
   /// để tránh gọi API liên tục làm quá tải server khi người dùng thay đổi nhiều tuỳ chọn nhanh chóng
   void _triggerPreviewPrice() {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel(); // Hủy timer hiện tại nếu có thay đổi mới
+    // THiết lập bộ đếm ngược mới : chờ 500ms = 0.5s
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       if (_mainServiceId == null) return;
+      // Bật trạng thái xoay vòng 
       _isCalculatingPrice = true;
       notifyListeners(); // Cập nhật UI hiển thị trạng thái đang tính toán
       
@@ -109,6 +111,7 @@ class BookingFormViewModel extends ChangeNotifier {
       try {
         final response = await ApiService.previewBookingPrice(bookingData);
         if (response['success'] == true) {
+          // Nhận lại gtias tiền chính xác từ backend và gán vào biến tạm tính
           _temporaryTotalPrice = double.parse(response['data']['totalPrice'].toString()); // Cập nhật tổng tiền từ API
         } else {
           _temporaryTotalPrice = 0;
