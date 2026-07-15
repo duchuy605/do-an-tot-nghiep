@@ -315,9 +315,9 @@ class CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
                                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 4,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 20,
+                                  crossAxisCount: 4, // chia làm 4 cột
+                                  crossAxisSpacing: 10, // khoảng cách chiều ngang 
+                                  mainAxisSpacing: 20,// khoảng cách chiều dọc
                                   mainAxisExtent: 95// ép cứng chiều cao mỗi ô
                                 ),
                                 itemCount: _viewModel.services.length,

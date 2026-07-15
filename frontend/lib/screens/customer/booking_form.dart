@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/customer/booking_checkout.dart';
 import 'package:intl/intl.dart';
 import '../../viewmodels/customer/booking_form_viewmodel.dart';
 import '../../models/service_model.dart';
-import 'booking_checkout.dart';
 import '../../widgets/provider_calendar_dialog.dart';
 import '../../widgets/top_banner_notification.dart';
 import '../../widgets/custom_time_picker.dart';
@@ -160,7 +160,7 @@ Future<void> _selectTime(BuildContext context) async {
     widget.service.maDichVu,
   );
 
-  // Lấy danh sách dịch vụ bổ sung đã chọn
+// Lấy danh sách dịch vụ bổ sung đã chọn
   final additionalServices = _viewModel.availableServices
       .where((s) => _viewModel.selectedAdditionalServices.containsKey(s.maDichVu))
       .toList();

@@ -52,7 +52,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'MatKhau': _passwordController.text,
       'DiaChi': _addressController.text.trim(),
       'GioiTinh': _viewModel.gender,
-      'NgaySinh': _viewModel.birthDate.toIso8601String().split('T')[0],
+      'NgaySinh': _viewModel.birthDate.toIso8601String().split('T')[0],// Lọc bỏ phần giờ/phút/giây thừa, chỉ giữ lại đúng định dạng Năm-Tháng-Ngày
+      //1. Đổi biến thời gian thành chuỗi.
+      //2.Lấy chữ T làm dao chặt đôi chuỗi đó ra.
+      //3. Nhặt lấy khúc đầu tiên ([0]) chính là phần Ngày.
       'VaiTro': _viewModel.role,
       if (_viewModel.role == 2) 'CCCD': _cccdController.text.trim(),
     };

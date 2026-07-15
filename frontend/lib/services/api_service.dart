@@ -351,20 +351,6 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  /// Thanh toán đơn đặt lịch bằng ví CleanGoPay
-  /// POST /api/payments
-  /// Bảng: DonDatLich, ViTien, LichSuViTien
-  /// Tham số: MaDatLich
-  /// Trừ tiền ví khách hàng → chuyển vào ví hệ thống (Escrow)
-  static Future<Map<String, dynamic>> payBooking(int id) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/payments'),
-      headers: await _headers(),
-      body: jsonEncode({'MaDatLich': id}),
-    );
-    return jsonDecode(response.body);
-  }
-
   /// Nạp tiền vào ví CleanGoPay
   /// POST /api/wallet/topup
   /// Bảng: ViTien, LichSuViTien

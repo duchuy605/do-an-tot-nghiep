@@ -6,7 +6,6 @@ import '../../widgets/top_banner_notification.dart';
 import '../../models/booking_model.dart';
 import '../../widgets/provider_calendar_dialog.dart';
 import '../../widgets/custom_time_picker.dart';
-import 'payment_screen.dart';
 
 class BookingDetailScreen extends StatefulWidget {
   final int maDatLich;
@@ -1115,7 +1114,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 ),
               ),
               
-              // Bottom checkout bar
+              // Bottom informational bar for pending bookings
               if (booking.trangThai == 1)
                 Positioned(
                   bottom: 0,
@@ -1134,31 +1133,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('Đơn hàng chưa thanh toán', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
+                              const Text('Đơn hàng đang chờ xử lý', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
                               const SizedBox(height: 2),
                               Text(priceStr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: orangeColor)),
                             ],
                           ),
                         ),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PaymentScreen(maDatLich: booking.maDatLich),
-                              ),
-                            ).then((_) {
-                              _viewModel.loadBookingDetails(widget.maDatLich);
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: orangeColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: const Text('THANH TOÁN NGAY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        ),
+                        const Text('Chờ hệ thống xử lý', style: TextStyle(color: Colors.grey, fontSize: 13)),
                       ],
                     ),
                   ),
