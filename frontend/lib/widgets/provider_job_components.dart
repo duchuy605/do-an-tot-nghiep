@@ -368,11 +368,19 @@ class ProviderJobCard extends StatelessWidget {
                     Row(
                       children: [
                         OutlinedButton(
-                          onPressed: () => callbacks.onRescheduleJob(job),
+                          onPressed: job['ThoiGianBatDauThucTe'] != null
+                              ? null
+                              : () => callbacks.onRescheduleJob(job),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: orangeColor,
-                            side: BorderSide(color: orangeColor),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            foregroundColor: job['ThoiGianBatDauThucTe'] != null
+                                ? Colors.grey
+                                : orangeColor,
+                            side: BorderSide(
+                                color: job['ThoiGianBatDauThucTe'] != null
+                                    ? Colors.grey
+                                    : orangeColor),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                           ),
                           child: const Text('Đổi Lịch'),
@@ -668,14 +676,22 @@ void showJobDetailSheet(BuildContext context, dynamic job, Color orangeColor, Co
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () { Navigator.pop(context); callbacks.onRescheduleJob(job); },
+                      onPressed: job['ThoiGianBatDauThucTe'] != null
+                          ? null
+                          : () { Navigator.pop(context); callbacks.onRescheduleJob(job); },
                       icon: const Icon(Icons.event_repeat_rounded, size: 18),
                       label: const Text('Đổi Lịch'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: orangeColor,
-                        side: BorderSide(color: orangeColor),
+                        foregroundColor: job['ThoiGianBatDauThucTe'] != null
+                            ? Colors.grey
+                            : orangeColor,
+                        side: BorderSide(
+                            color: job['ThoiGianBatDauThucTe'] != null
+                                ? Colors.grey
+                                : orangeColor),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
@@ -892,12 +908,21 @@ void showRecurringDetailSheet(BuildContext context, List<dynamic> jobs, Color or
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           OutlinedButton(
-                            onPressed: () { Navigator.pop(context); callbacks.onRescheduleJob(job); },
+                            onPressed: job['ThoiGianBatDauThucTe'] != null
+                                ? null
+                                : () { Navigator.pop(context); callbacks.onRescheduleJob(job); },
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: orangeColor,
-                              side: BorderSide(color: orangeColor),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              foregroundColor: job['ThoiGianBatDauThucTe'] != null
+                                  ? Colors.grey
+                                  : orangeColor,
+                              side: BorderSide(
+                                  color: job['ThoiGianBatDauThucTe'] != null
+                                      ? Colors.grey
+                                      : orangeColor),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
                               minimumSize: Size.zero,
                             ),
                             child: const Text('Đổi Lịch', style: TextStyle(fontSize: 11)),
