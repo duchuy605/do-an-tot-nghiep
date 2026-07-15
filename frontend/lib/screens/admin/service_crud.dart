@@ -189,7 +189,7 @@ class _ServiceCrudScreenState extends State<ServiceCrudScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 4),
-                        Text(service.motaDichVu, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        Text(service.motaDichVu, style: const TextStyle(fontSize: 12, color: Colors.black), maxLines: 2, overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 4),
                         Text('Giá: $priceStr • Tối thiểu: ${service.soGioQuyDinh}h', style: const TextStyle(fontSize: 13, color: orangeColor, fontWeight: FontWeight.w600)),
                       ],

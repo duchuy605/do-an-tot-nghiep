@@ -191,7 +191,7 @@ class _PackageCrudScreenState extends State<PackageCrudScreen> {
                 children: [
                   Icon(Icons.layers_clear_outlined, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
-                  const Text('Chưa cấu hình gói định kỳ nào', style: TextStyle(color: Colors.grey)),
+                  const Text('Chưa cấu hình gói định kỳ nào', style: TextStyle(color: Colors.black)),
                 ],
               ),
             );

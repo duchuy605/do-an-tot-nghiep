@@ -44,7 +44,7 @@ class JobBoardScreenState extends State<JobBoardScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+            child: const Text('Đóng', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -92,7 +92,7 @@ class JobBoardScreenState extends State<JobBoardScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+            child: const Text('Đóng', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),

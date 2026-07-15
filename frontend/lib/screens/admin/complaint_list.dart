@@ -153,7 +153,7 @@ class _ComplaintListScreenState extends State<ComplaintListScreen> {
                       children: [
                         Icon(Icons.thumb_up_alt_outlined, size: 60, color: Colors.grey.shade300),
                         const SizedBox(height: 12),
-                        const Text('Không có khiếu nại nào cần giải quyết', style: TextStyle(color: Colors.grey)),
+                        const Text('Không có khiếu nại nào cần giải quyết', style: TextStyle(color: Colors.black)),
                       ],
                     ),
                   )

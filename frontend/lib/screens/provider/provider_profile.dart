@@ -146,7 +146,7 @@ class ProviderProfileScreenState extends State<ProviderProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy đổi mật khẩu', style: TextStyle(color: orangeColor,fontWeight: FontWeight.bold)),
+            child: const Text('Hủy', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () async {
@@ -418,21 +418,11 @@ class ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                     size: 28,
                                   ),
                                   const SizedBox(height: 6),
-                                  Text(
-                                    '${double.tryParse(_viewModel.hoso?['SoSaoTrungBinh']?.toString() ?? '5.0')?.toStringAsFixed(1) ?? '5.0'} / 5.0',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                      color: darkColor,
-                                    ),
-                                  ),
-                                  const Text(
-                                    'Đánh giá sao',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
+                                    Text(
+                                     '${double.tryParse(_viewModel.hoso?['SoSaoTrungBinh']?.toString() ?? '5.0')?.toStringAsFixed(1) ?? '5.0'} / 5.0',
+                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: darkColor),
+                                   ),
+                                  const Text('Đánh giá sao', style: TextStyle(fontSize: 11, color: Colors.black)),
                                 ],
                               ),
                               Column(

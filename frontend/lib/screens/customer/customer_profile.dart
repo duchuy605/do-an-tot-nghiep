@@ -113,10 +113,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Hủy đổi mật khẩu',
-              style: TextStyle(color: orangeColor, fontWeight: FontWeight.bold),
-            ),
+            child: const Text('Hủy', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () async {
@@ -503,51 +500,26 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             // Extra Setting Actions styled like modern list cards
                             Container(
                               decoration: BoxDecoration(
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.grey.shade100,
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    ListTile(
-                                      leading: Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: orangeColor.withValues(
-                                            alpha: 0.1,
-                                          ),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.lock_outline_rounded,
-                                          color: orangeColor,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      title: const Text(
-                                        'Thay đổi mật khẩu',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: darkColor,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      trailing: const Icon(
-                                        Icons.chevron_right_rounded,
-                                        color: Colors.grey,
-                                      ),
-                                      onTap: _showChangePasswordDialog,
+                                boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
+                              ),
+                              child: Column(
+                                children: [
+                                  ListTile(
+                                    leading: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(color: orangeColor.withOpacity(0.1), shape: BoxShape.circle),
+                                      child: const Icon(Icons.lock_outline_rounded, color: orangeColor, size: 20),
                                     ),
-                                  ],
-                                ),
+                                    title: const Text(
+                                      'Thay đổi mật khẩu',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: darkColor, fontSize: 14),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_right_rounded, color: Colors.black),
+                                    onTap: _showChangePasswordDialog,
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 40),

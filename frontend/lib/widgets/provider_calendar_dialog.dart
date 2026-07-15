@@ -256,7 +256,7 @@ class _ProviderCalendarDialogState extends State<ProviderCalendarDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Hủy', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  child: const Text('Hủy', style: TextStyle(color: Colors.black, fontSize: 16)),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(

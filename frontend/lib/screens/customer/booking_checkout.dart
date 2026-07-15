@@ -149,7 +149,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+            child: const Text('Hủy', style: TextStyle(color: Colors.black)),
           ),
           ElevatedButton(
             onPressed: () {

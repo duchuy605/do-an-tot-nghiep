@@ -174,7 +174,7 @@ class _TimeSlotCrudScreenState extends State<TimeSlotCrudScreen> {
                 children: [
                   Icon(Icons.access_time_rounded, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
-                  const Text('Chưa cấu hình khung giờ đặc biệt nào', style: TextStyle(color: Colors.grey)),
+                  const Text('Chưa cấu hình khung giờ đặc biệt nào', style: TextStyle(color: Colors.black)),
                 ],
               ),
             );
