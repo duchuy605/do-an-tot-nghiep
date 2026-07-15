@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/customer/booking_checkout.dart';
 import 'package:intl/intl.dart';
 import '../../viewmodels/customer/booking_form_viewmodel.dart';
 import '../../models/service_model.dart';
@@ -159,9 +160,29 @@ Future<void> _selectTime(BuildContext context) async {
     widget.service.maDichVu,
   );
 
-  // Không còn dùng màn hình checkout/payment riêng; đơn sẽ được tạo trực tiếp từ form.
-  if (!mounted) return;
-  Navigator.pop(context, true);
+// Lấy danh sách dịch vụ bổ sung đã chọn
+  final additionalServices = _viewModel.availableServices
+      .where((s) => _viewModel.selectedAdditionalServices.containsKey(s.maDichVu))
+      .toList();
+
+  // Navigate sang màn hình thanh toán
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => BookingCheckoutScreen(
+        bookingData: bookingData,
+        mainService: widget.service,
+        additionalServices: additionalServices,
+        durationHours: _viewModel.totalDurationHours,
+        bookingType: _viewModel.bookingType,
+      ),
+    ),
+  );
+
+  // Nếu thanh toán thành công, pop về trang chủ
+  if (result == true && mounted) {
+    Navigator.pop(context, true);
+  }
 }
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,###', 'vi_VN');
