@@ -56,9 +56,9 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
   Future<void> _handleWithdraw() async {
     final amountText = _withdrawAmountController.text.trim();
     if (amountText.isEmpty) return;
-    // Loại bỏ dấu chấm hoặc phẩy phân cách hàng nghìn trước khi parse
     final rawAmount = amountText.replaceAll(RegExp(r'[^0-9]'), '');
     final amount = int.tryParse(rawAmount);
+
     if (amount == null || amount < 100000) {
       _showMessageBox('Số tiền rút tối thiểu mỗi lần là 100.000 VNĐ.');
       return;
@@ -160,7 +160,6 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
               TextField(
                 controller: _withdrawAmountController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [CurrencyTextInputFormatter()],
                 autofocus: true,
                 style: const TextStyle(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(

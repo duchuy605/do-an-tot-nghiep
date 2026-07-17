@@ -43,6 +43,9 @@ class ProviderWalletViewModel extends ChangeNotifier {
 
     try {
       final response = await ApiService.withdrawWallet(amount);
+      if (response['success'] == true) {
+        await loadWalletData();
+      }
       _isLoading = false;
       notifyListeners();
       return response;

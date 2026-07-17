@@ -543,7 +543,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context, null),
               child: const Text('Hủy đổi lịch', style: TextStyle(color: Color(0xFFFF8225))),
             ),
             TextButton(

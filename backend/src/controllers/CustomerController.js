@@ -1272,7 +1272,7 @@ class CustomerController {
             { MaViDich: wallet.MaViTien }
           ]
         },
-        order: [['NgayTao', 'DESC']]
+        order: [['MaGiaoDich', 'DESC']]
       });
 
       return success(res, history, 'Lấy lịch sử giao dịch ví thành công');
