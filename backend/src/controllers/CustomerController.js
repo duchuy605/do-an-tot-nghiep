@@ -304,7 +304,7 @@ class CustomerController {
           MaNhanVien: providerId,
           TrangThaiDonHang: { [Op.in]: [0, 1] } // Chỉ lấy ca đang chờ hoặc đã nhận
         },
-        attributes: ['NgayLamViec', 'GioBatDau', 'GioKetThuc'],
+        attributes: ['MaCaLam', 'NgayLamViec', 'GioBatDau', 'GioKetThuc'],
         order: [['NgayLamViec', 'ASC']]
       });
 
@@ -316,7 +316,7 @@ class CustomerController {
         // Đảm bảo time dạng 'HH:mm' (cắt bỏ giây nếu có)
         const start = String(s.GioBatDau || '00:00').substring(0, 5);
         const end   = String(s.GioKetThuc || '00:00').substring(0, 5);
-        return { date: d, start, end };
+        return { id: s.MaCaLam, date: d, start, end };
       });
 
       return success(res, busyDates, 'Lấy lịch bận của nhân viên thành công');
@@ -777,24 +777,21 @@ class CustomerController {
         return error(res, 'Ca làm việc chưa có nhân viên nên chưa thể gửi yêu cầu đổi lịch', 400);
       }
 
-      // Nếu không truyền GioKetThuc, tự tính từ tổng giờ dịch vụ trong đơn
+      // Kiểm tra nếu thời gian mới không thay đổi so với thời gian cũ
+      const oldStartStr = `${job.GioBatDau}`;
+      const newStartStr = `${GioBatDau.length === 5 ? GioBatDau + ':00' : GioBatDau}`;
+      if (NgayLamViec === job.NgayLamViec && newStartStr === oldStartStr) {
+        return error(res, 'Vui lòng chọn ngày hoặc giờ khác với lịch hiện tại', 400);
+      }
+
+      // Nếu không truyền GioKetThuc, tự tính từ thời lượng của ca làm cũ
       if (!GioKetThuc) {
-        const datDichVus = await DatDichVu.findAll({
-          where: { MaDatLich: job.MaDatLich },
-          include: [{ model: DichVu, as: 'DichVu' }]
-        });
+        let durationHours = getDurationInHours(job.GioBatDau, job.GioKetThuc);
+        if (durationHours <= 0) durationHours = 1;
 
-        let tongGio = 0;
-        for (const ddv of datDichVus) {
-          if (ddv.DichVu) {
-            tongGio += (ddv.DichVu.SoGioQuyDinh || 1) * (ddv.SoLuong || 1);
-          }
-        }
-        if (tongGio <= 0) tongGio = getDurationInHours(job.GioBatDau, job.GioKetThuc);
-
-        // Tính GioKetThuc = GioBatDau + tongGio
+        // Tính GioKetThuc = GioBatDau + durationHours
         const [h, m] = GioBatDau.split(':').map(Number);
-        const totalMinutes = h * 60 + (m || 0) + tongGio * 60;
+        const totalMinutes = h * 60 + (m || 0) + Math.round(durationHours * 60);
         const endH = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
         const endM = (totalMinutes % 60).toString().padStart(2, '0');
         GioKetThuc = `${endH}:${endM}:00`;
@@ -921,7 +918,9 @@ class CustomerController {
       if (![0, 1].includes(job.TrangThaiDonHang)) {
         return error(res, 'Chỉ có thể xử lý yêu cầu đổi lịch cho ca chưa hoàn thành hoặc chưa hủy', 400);
       }
-      const ngayMoi = request.NgayMoi.toISOString().split('T')[0];
+      const ngayMoi = (request.NgayMoi instanceof Date) 
+        ? request.NgayMoi.toISOString().split('T')[0] 
+        : request.NgayMoi.split('T')[0].split(' ')[0];
       const gioBatDauMoi = request.GioBatDauMoi;
       const gioKetThucMoi = request.GioKetThucMoi;
 

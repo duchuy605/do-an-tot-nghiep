@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../widgets/provider_calendar_dialog.dart';
 import '../../viewmodels/provider/my_jobs_viewmodel.dart';
 
 class MyJobsScreen extends StatefulWidget {
@@ -239,11 +240,23 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                 title: const Text('Ngày làm mới'),
                 subtitle: Text(_formatDate(selectedDate)),
                 onTap: () async {
-                  final picked = await showDatePicker(
+                  final picked = await showDialog<DateTime>(
                     context: context,
-                    initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 180)),
+                    builder: (context) => ProviderCalendarDialog(
+                      initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 180)),
+                      providerShifts: _viewModel.myJobs
+                          .where((s) => s['MaCaLam'] != job['MaCaLam'] && (s['TrangThaiDonHang'] == 0 || s['TrangThaiDonHang'] == 1 || s['TrangThaiDonHang'] == 2))
+                          .map((s) => {
+                                'date': (s['NgayLamViec'] ?? '').toString().split('T')[0].split(' ')[0],
+                                'start': s['GioBatDau'] ?? '00:00',
+                                'end': s['GioKetThuc'] ?? '00:00'
+                              })
+                          .toList(),
+                      plannedStartTime: startTime,
+                      plannedDurationHours: durationMins / 60.0,
+                    ),
                   );
                   if (picked != null) {
                     setDialogState(() {
@@ -287,6 +300,18 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                     ],
                   ),
                 ),
+              const SizedBox(height: 8),
+              if (selectedDate == oldDate && startTime == oldStartTime)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                      const SizedBox(width: 4),
+                      const Expanded(child: Text('Vui lòng chọn thời gian khác với lịch cũ để đổi lịch.', style: TextStyle(color: Colors.blue, fontSize: 12))),
+                    ],
+                  ),
+                ),
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
@@ -320,10 +345,10 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
               child: const Text('Đóng', style: TextStyle(color: Color(0xFFFF8225))),
             ),
             TextButton(
-              onPressed: hasConflict ? null : () {
+              onPressed: (hasConflict || (selectedDate == oldDate && startTime == oldStartTime)) ? null : () {
                 Navigator.pop(context, true);
               },
-              child: Text('Đổi Lịch', style: TextStyle(fontWeight: FontWeight.bold, color: hasConflict ? Colors.grey : const Color(0xFFFF8225))),
+              child: Text('Đổi Lịch', style: TextStyle(fontWeight: FontWeight.bold, color: (hasConflict || (selectedDate == oldDate && startTime == oldStartTime)) ? Colors.grey : const Color(0xFFFF8225))),
             ),
           ],
         ),
