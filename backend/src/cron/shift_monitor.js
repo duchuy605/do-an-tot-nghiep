@@ -5,7 +5,6 @@ const oCamManager = require('../sockets/o_cam_manager');
 let isRunning = false;
 let cronScheduled = false;
 
-// In-memory sets to track notifications to avoid adding db columns
 const notified15m = new Set();
 const notifiedLate = new Set();
 let lastDateString = '';
@@ -24,11 +23,10 @@ function getReminderWindowState(startTime, now) {
 
 function startShiftMonitorCron() {
   if (cronScheduled) {
-    console.log('[SHIFT MONITOR] startShiftMonitorCron called again, skipping duplicate schedule');
     return;
   }
   cronScheduled = true;
-  console.log('[SHIFT MONITOR] Scheduling shift monitor cron');
+ 
 
   // Chạy mỗi phút 1 lần
   cron.schedule('* * * * *', async () => {
@@ -69,9 +67,8 @@ function startShiftMonitorCron() {
         const lateWindowStart = -16 * 60;
         const lateWindowEnd = -14 * 60;
 
-        // 1. Nhắc nhở Nhân viên trước 15 phút (chỉ gửi 1 lần)
+        // Nhắc nhở Nhân viên trước 15 phút (chỉ gửi 1 lần)
         if (shouldSendReminder && !notified15m.has(shift.MaCaLam)) {
-          console.log('[thong bao] Sending 15-minute reminder to provider', shift.MaNhanVien, 'for shift', shift.MaCaLam, 'diffSeconds', diffSeconds);
           oCamManager.guiThongBaoNguoiDung(shift.MaNhanVien, {
             tieuDe: 'Sắp bắt đầu ca làm việc',
             noiDung: `Bạn có ca làm việc sẽ bắt đầu sau 15 phút nữa (lúc ${shift.GioBatDau.substring(0,5)}). Hãy chuẩn bị và nhớ nhấn "Bắt đầu" nhé!`,
@@ -86,7 +83,6 @@ function startShiftMonitorCron() {
           const provider = await NguoiDung.findByPk(shift.MaNhanVien);
           const providerName = provider ? provider.HoTenNguoiDung : 'Không rõ';
           
-          console.log('[thong bao] Sending late shift alert to Admin for shift', shift.MaCaLam, 'diffSeconds', diffSeconds);
           oCamManager.guiThongBaoAdmin({
             tieuDe: 'Nhân viên có thể đi trễ',
             noiDung: `Nhân viên ${providerName} vẫn chưa bấm "Bắt đầu" cho ca làm việc #${shift.MaCaLam} (Giờ bắt đầu: ${shift.GioBatDau.substring(0,5)}). Đã trễ 15 phút!`,

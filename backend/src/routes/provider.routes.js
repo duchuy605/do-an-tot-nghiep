@@ -11,6 +11,7 @@ router.get('/jobs', authenticate, authorize('PROVIDER'), providerController.getJ
 router.get('/jobs/:id', authenticate, authorize('PROVIDER'), providerController.getJobDetail);
 router.post('/jobs/:id/accept', authenticate, authorize('PROVIDER'), providerController.acceptJob);
 router.post('/jobs/:id/reject', authenticate, authorize('PROVIDER'), providerController.rejectJob);
+router.post('/jobs/:id/cancel', authenticate, authorize('PROVIDER'), providerController.cancelJob);
 router.post('/jobs/:id/start', authenticate, authorize('PROVIDER'), providerController.startJob);
 router.post('/jobs/:id/complete', authenticate, authorize('PROVIDER'), providerController.completeJob);
 

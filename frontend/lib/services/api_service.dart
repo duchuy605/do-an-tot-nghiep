@@ -538,6 +538,17 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
+  /// Hủy ca làm việc đã nhận kèm lý do (trước 30 phút)
+  /// POST /api/provider/jobs/:id/cancel
+  static Future<Map<String, dynamic>> cancelJob(int id, {String lyDoHuy = ''}) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/provider/jobs/$id/cancel'),
+      headers: {...await _headers(), 'Content-Type': 'application/json'},
+      body: jsonEncode({'LyDoHuy': lyDoHuy}),
+    );
+    return jsonDecode(response.body);
+  }
+
   /// Bắt đầu ca làm việc
   /// POST /api/provider/jobs/:id/start
   static Future<Map<String, dynamic>> startJob(int id) async {

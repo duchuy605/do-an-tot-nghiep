@@ -294,6 +294,54 @@ class ProviderController {
     }
   }
 
+  async cancelJob(req, res, next) {
+    try {
+      const providerId = req.user.MaNguoiDung;
+      const caLamId = req.params.id;
+
+      const job = await CaLamViec.findByPk(caLamId);
+      if (!job || job.MaNhanVien !== providerId) {
+        return error(res, 'Công việc không hợp lệ hoặc không thuộc về bạn', 400);
+      }
+
+      if (job.TrangThaiDonHang !== 1) {
+        return error(res, 'Chỉ có thể hủy ca làm việc đã nhận và chưa hoàn thành/hủy', 400);
+      }
+
+      const now = new Date();
+      const jobStart = new Date(`${job.NgayLamViec}T${job.GioBatDau}+07:00`);
+      
+      const diffMs = jobStart - now;
+      const diffMins = diffMs / (1000 * 60);
+
+      if (diffMins < 30) {
+        return error(res, 'Chỉ được phép hủy ca làm việc trước giờ bắt đầu ít nhất 30 phút.', 400);
+      }
+
+      const lyDoHuy = req.body.LyDoHuy || '';
+      if (!lyDoHuy.trim()) {
+        return error(res, 'Vui lòng nhập lý do hủy lịch', 400);
+      }
+
+      await job.update({
+        MaNhanVien: null,
+        TrangThaiDonHang: 1,
+        LyDoHuy: `Nhân viên hủy lịch: ${lyDoHuy.trim()}`,
+        NgayCapNhat: new Date()
+      });
+
+      oCamManager.guiThongBaoNguoiDung(job.MaKhachHang, {
+        tieuDe: 'Nhân viên hủy ca làm việc!',
+        noiDung: `Nhân viên ${req.user.HoTenNguoiDung} đã hủy nhận ca làm việc ngày ${job.NgayLamViec} của bạn. Lý do: ${lyDoHuy.trim()}. Ca làm việc đã được đưa lại bảng việc trống để người khác nhận.`,
+        data: job
+      });
+
+      return success(res, null, 'Hủy lịch làm việc thành công. Ca làm việc đã được đưa lại bảng việc trống.');
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // ============================================================
   // POST /provider/jobs/:id/complete - Hoàn thành ca làm + chia hoa hồng 80/20
   // 80% lương → ví nhân viên dọn dẹp

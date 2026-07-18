@@ -497,6 +497,18 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                           ],
                         ),
                       ],
+                      if (_viewModel.totalTimeSlotSurcharge > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildPriceRow('Phụ thu khung giờ', _viewModel.totalTimeSlotSurcharge),
+                      ],
+                      if (_viewModel.totalWeekendSurcharge > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildPriceRow('Phụ thu Thứ 7 / Chủ nhật', _viewModel.totalWeekendSurcharge),
+                      ],
+                      if (_viewModel.totalSpecialDaySurcharge > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildPriceRow('Phụ thu ngày Lễ/Tết', _viewModel.totalSpecialDaySurcharge),
+                      ],
                       const SizedBox(height: 10),
                       const Divider(),
                       const SizedBox(height: 4),

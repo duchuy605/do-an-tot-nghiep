@@ -17,7 +17,6 @@ class OCamManager {
     });
 
     this.io.on('connection', (socket) => {
-      console.log(`User connected: ${socket.id}`);
 
       // Đăng ký định danh Socket.IO cho Client
       socket.on('register', (data) => {
@@ -39,19 +38,15 @@ class OCamManager {
         if (VaiTro === 3) {
           this.adminSockets.add(socket.id);
           socket.join('admins');
-          console.log(`Admin registered: ${MaNguoiDung} (Socket: ${socket.id})`);
+       
         } else if (VaiTro === 2) {
           socket.join('providers');
-          console.log(`Provider registered: ${MaNguoiDung} (Socket: ${socket.id})`);
         } else {
           socket.join('customers');
-          console.log(`Customer registered: ${MaNguoiDung} (Socket: ${socket.id})`);
         }
       });
 
       socket.on('disconnect', () => {
-        console.log(`[SOCKET] User disconnected: ${socket.id}`);
-        
         if (socket.userId) {
           const sockets = this.userSockets.get(socket.userId);
           if (sockets) {
@@ -69,7 +64,6 @@ class OCamManager {
 
   // Gửi thông báo cho một người dùng cụ thể và lưu vào DB
   async guiThongBaoNguoiDung(userId, { tieuDe, noiDung, data = null }) {
-    console.log(`Emitting to User #${userId}: ${tieuDe} - ${noiDung}`);
     
     try {
       // Lưu thông tin thông báo vào cơ sở dữ liệu
@@ -85,7 +79,6 @@ class OCamManager {
       const hasConnectedSocket = connectedSockets && connectedSockets.size > 0;
 
       if (!hasConnectedSocket) {
-        console.log(`[SOCKET] User #${userId} has no active socket connection. Notification saved to DB only.`);
         return;
       }
       
@@ -100,13 +93,11 @@ class OCamManager {
         });
       }
     } catch (err) {
-      console.error('Failed to save/emit notification for user:', err);
     }
   }
 
   // Gửi thông báo to all admins
   async guiThongBaoAdmin({ tieuDe, noiDung, data = null }) {
-    console.log(`[SOCKET] Emitting to all Admins: ${tieuDe} - ${noiDung}`);
     
     try {
       // Tìm tất cả quản trị viên in DB
@@ -129,13 +120,11 @@ class OCamManager {
         });
       }
     } catch (err) {
-      console.error('Failed to save/emit admin notification:', err);
     }
   }
 
   // Send to all providers only
   async guiThongBaoTatCaNhanVien({ tieuDe, noiDung, data = null }) {
-    console.log(`Emitting to Providers only: ${tieuDe} - ${noiDung}`);
     
     try {
       // Tìm tất cả providers in DB
@@ -164,7 +153,6 @@ class OCamManager {
         });
       }
     } catch (err) {
-      console.error('Failed on system notification:', err);
     }
   }
 }

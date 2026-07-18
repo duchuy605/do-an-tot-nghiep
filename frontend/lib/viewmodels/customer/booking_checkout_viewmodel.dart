@@ -16,6 +16,10 @@ class BookingCheckoutViewModel extends ChangeNotifier {
   double _packageDiscountPercent = 0;
   double _providerSurchargePercent = 0;
   List<dynamic> _detailedServices = [];
+  double _totalTimeSlotSurcharge = 0;
+  double _totalWeekendSurcharge = 0;
+  double _totalSpecialDaySurcharge = 0;
+  double _totalProviderSurcharge = 0;
 
   // Promo
   double _discountAmount = 0;
@@ -36,6 +40,10 @@ class BookingCheckoutViewModel extends ChangeNotifier {
   double get discountAmount => _discountAmount;
   String? get promoSuccessMessage => _promoSuccessMessage;
   String? get promoErrorMessage => _promoErrorMessage;
+  double get totalTimeSlotSurcharge => _totalTimeSlotSurcharge;
+  double get totalWeekendSurcharge => _totalWeekendSurcharge;
+  double get totalSpecialDaySurcharge => _totalSpecialDaySurcharge;
+  double get totalProviderSurcharge => _totalProviderSurcharge;
 
   double get finalPrice => _estimatedPrice - _discountAmount;
 
@@ -66,6 +74,37 @@ class BookingCheckoutViewModel extends ChangeNotifier {
         _packageDiscountPercent = (data['packageDiscountPercent'] as num?)?.toDouble() ?? 0;
         _providerSurchargePercent = (data['providerSurchargePercent'] as num?)?.toDouble() ?? 0;
         _detailedServices = data['detailedServices'] ?? [];
+
+        // Tính tổng phụ thu từ sessionDetails bằng cách sử dụng các hệ số
+        final sessions = data['sessionDetails'] as List<dynamic>? ?? [];
+        _totalTimeSlotSurcharge = 0;
+        _totalWeekendSurcharge = 0;
+        _totalSpecialDaySurcharge = 0;
+        _totalProviderSurcharge = 0;
+        for (var session in sessions) {
+          final double basePrice = (session['BasePrice'] as num?)?.toDouble() ?? 0.0;
+          final double hskg = (session['HeSoKhungGio'] as num?)?.toDouble() ?? 1.0;
+          final double hsct = (session['HeSoCuoiTuan'] as num?)?.toDouble() ?? 1.0;
+          final double hsdb = (session['HeSoDacBiet'] as num?)?.toDouble() ?? 1.0;
+
+          // Tính phụ thu thực tế theo hệ số
+          final double phuThuKhungGio = basePrice * (hskg - 1.0);
+          final double phuThuCuoiTuan = basePrice * (hsct - 1.0);
+          final double phuThuNgayDacBiet = basePrice * (hsdb - 1.0);
+
+          _totalTimeSlotSurcharge += (phuThuKhungGio / 1000).round() * 1000;
+          _totalWeekendSurcharge += (phuThuCuoiTuan / 1000).round() * 1000;
+          _totalSpecialDaySurcharge += (phuThuNgayDacBiet / 1000).round() * 1000;
+
+          if (_providerSurchargePercent > 0) {
+            double sessionFinalPrice = basePrice * hskg * hsct * hsdb;
+            if (_packageDiscountPercent > 0) {
+              sessionFinalPrice = sessionFinalPrice * (1.0 - _packageDiscountPercent / 100.0);
+            }
+            final double phuThuChonNhanVien = sessionFinalPrice * (_providerSurchargePercent / 100.0);
+            _totalProviderSurcharge += (phuThuChonNhanVien / 1000).round() * 1000;
+          }
+        }
       } else {
         _errorMessage = previewResponse['message'] ?? 'Không thể tính giá.';
       }
