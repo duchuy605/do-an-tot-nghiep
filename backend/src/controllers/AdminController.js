@@ -873,17 +873,8 @@ class AdminController {
               const remainingPending = currentPending - providerPenalty;
               await caLam.update({ TongTienTre: remainingPending }, { transaction: tx });
               
-              // Ghi nhận lịch sử phạt dù tiền chưa vào ví, SoDuSau giữ nguyên vì chỉ trừ từ TongTienTre
-              await LichSuViTien.create({
-                MaViNguon: providerWallet.MaViTien,
-                MaViDich: systemWallet.MaViTien,
-                MaCaLam: caLam.MaCaLam,
-                MaKhieuNai: complaintId,
-                LoaiGiaoDich: 7, // 7: Trừ tiền phạt
-                SoTien: providerPenalty,
-                SoDuSau: providerWallet.SoDu,
-                NgayTao: new Date()
-              }, { transaction: tx });
+              // KHÔNG ghi nhận lịch sử giao dịch ví của nhân viên ở đây vì tiền chưa vào ví khả dụng.
+              // Số tiền này bị trừ trực tiếp từ TongTienTre và nhân viên sẽ nhận ít tiền hơn khi đối soát.
             }
 
             // Chỉ hoàn tiền cho khách nếu hình thức xử lý là Hoàn tiền
