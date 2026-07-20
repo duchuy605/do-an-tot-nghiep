@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       navigatorKey: SocketService.navigatorKey,
-      title: 'bTaskee Helper',
+      title: 'CleanGo App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
