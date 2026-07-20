@@ -285,16 +285,22 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
     );
   }
 
-  String _getTransactionTypeLabel(int type) {
+  String _getTransactionTypeLabel(Map<String, dynamic> tx) {
+    final int type = tx['LoaiGiaoDich'] ?? 1;
     switch (type) {
       case 1:
         return 'Nạp tiền ví';
       case 2:
         return 'Thanh toán lịch dọn';
       case 3:
-        return 'Hoàn tiền khiếu nại';
+        if (tx['MaKhieuNai'] != null) {
+          return 'Hoàn tiền khiếu nại';
+        }
+        return 'Hoàn tiền hủy đơn';
       case 4:
         return 'Thu nhập ca làm việc';
+      case 5:
+        return 'Bồi thường hủy ca';
       case 6:
         return 'Rút tiền ví';
       case 7:
@@ -305,7 +311,7 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
   }
 
   Color _getTransactionColor(int type) {
-    if (type == 4 || type == 1 || type == 3) {
+    if (type == 4 || type == 1 || type == 3 || type == 5) {
       return Colors.green;
     }
     // type 2 (thanh toán), type 6 (rút tiền), type 7 (phạt) = red
@@ -314,7 +320,7 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
 
   String _formatAmount(double amt, int type) {
     final String formatted = NumberFormat('#,###', 'vi_VN').format(amt.toInt());
-    if (type == 4 || type == 1 || type == 3) {
+    if (type == 4 || type == 1 || type == 3 || type == 5) {
       return '+$formatted đ';
     }
     // type 2, 6 = outgoing
@@ -480,7 +486,7 @@ class ProviderWalletScreenState extends State<ProviderWalletScreen> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                _getTransactionTypeLabel(type),
+                                                _getTransactionTypeLabel(tx),
                                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: darkColor),
                                               ),
                                               const SizedBox(height: 4),

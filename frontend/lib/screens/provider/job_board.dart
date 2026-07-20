@@ -561,19 +561,25 @@ class JobBoardScreenState extends State<JobBoardScreen> {
           }
 
           // Gom nhóm theo MaDatLich cho đặt lịch định kỳ
+          // Khởi tạo 1 mảng rỗng để chứa toàn bộ item sẽ hiển thị lên màn hình
           final List<Map<String, dynamic>> displayItems = [];
+          // Khởi tạo 1 Map để gom các ca làm việc định kỳ (gom theo key là MaDatLich)
           final Map<int, List<dynamic>> recurringGroups = {};
-
+          // VÒNG LẶP FOR SỐ 1: Quét toàn bộ danh sách việc lấy từ API về
           for (final job in _viewModel.availableJobs) {
+            
             final loaiDatLich = job['DonDatLich']?['LoaiDatLich'];
             final maDatLich = job['MaDatLich'];
             if (loaiDatLich == 2 && maDatLich != null) {
+              // Nhét ca này vào trong nhóm có chung mã đặt lịch (MaDatLich)
               recurringGroups.putIfAbsent(maDatLich, () => []).add(job);
             } else {
+              // Nếu là lịch LẺ (loaiDatLich != 2), thì ném thẳng nó vào danh sách hiển thị
               displayItems.add({'type': 'single', 'job': job});
             }
           }
           for (final entry in recurringGroups.entries) {
+            // Lôi từng cục định kỳ đó ném nốt vào danh sách hiển thị chung
             displayItems.add({'type': 'recurring', 'maDatLich': entry.key, 'jobs': entry.value});
           }
 

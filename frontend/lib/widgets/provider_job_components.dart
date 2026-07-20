@@ -386,6 +386,20 @@ class ProviderJobCard extends StatelessWidget {
                           child: const Text('Đổi Lịch'),
                         ),
                         const SizedBox(width: 8),
+                        if (job['ThoiGianBatDauThucTe'] == null) ...[
+                          OutlinedButton(
+                            onPressed: () => callbacks.onCancelJob(id),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                            ),
+                            child: const Text('Hủy'),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         if (job['ThoiGianBatDauThucTe'] == null)
                           ElevatedButton(
                             onPressed: () => callbacks.onStartJob(id),
@@ -674,6 +688,22 @@ void showJobDetailSheet(BuildContext context, dynamic job, Color orangeColor, Co
             if (status == 1) ...[
               Row(
                 children: [
+                  if (job['ThoiGianBatDauThucTe'] == null) ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () { Navigator.pop(context); callbacks.onCancelJob(id); },
+                        icon: const Icon(Icons.cancel_outlined, size: 18),
+                        label: const Text('Hủy'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: job['ThoiGianBatDauThucTe'] != null
@@ -695,7 +725,7 @@ void showJobDetailSheet(BuildContext context, dynamic job, Color orangeColor, Co
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   if (job['ThoiGianBatDauThucTe'] == null)
                     Expanded(
                       child: ElevatedButton.icon(

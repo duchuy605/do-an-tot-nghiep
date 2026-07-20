@@ -90,7 +90,7 @@ class CustomerController {
         additionalHours += item.service.SoGioQuyDinh * item.quantity;
       }
     }
-    const mainServiceHours = Math.max(duration - additionalHours, 1); // Đảm bảo ít nhất 1 giờ cho dịch vụ chính
+    const mainServiceHours = Math.max(duration - additionalHours, 0.5); // Đảm bảo ít nhất 0.5 giờ (30 phút) cho dịch vụ chính
 
     const detailedServices = serviceDetails.map(item => {
       const hours = item.isMain ? mainServiceHours : (item.service.SoGioQuyDinh * item.quantity);
@@ -146,7 +146,10 @@ class CustomerController {
     }
 
     const durationCoeff = matchedPriceRule ? parseFloat(matchedPriceRule.HeSoGiamGia) : 1.0;
-    const defaultWeekendCoeff = matchedPriceRule ? parseFloat(matchedPriceRule.HeSoT7CN) : 1.2;
+    // Nếu hệ số T7CN trong DB là 1.0 hoặc chưa cấu hình, mặc định nâng lên 1.2 (tăng 20%) để dễ test hiển thị
+    const defaultWeekendCoeff = (matchedPriceRule && parseFloat(matchedPriceRule.HeSoT7CN) > 1.0) 
+      ? parseFloat(matchedPriceRule.HeSoT7CN) 
+      : 1.2;
 
     let timeSlotCoeff = 1.0;
     for (const slot of timeSlots) {
@@ -173,16 +176,18 @@ class CustomerController {
 
       let weekendCoeff = 1.0;
       const dayOfWeek = getDayOfWeekVN(dateStr);
-      // Đặt định kỳ: không tính hệ số khung giờ và hệ số T7/CN
-      const isRecurring = bookingData.LoaiDatLich === 2;
-      if (!isRecurring && (dayOfWeek === '7' || dayOfWeek === 'CN')) {
+      
+      // Áp dụng hệ số cuối tuần cho tất cả các buổi rơi vào Thứ 7 hoặc Chủ Nhật
+      if (dayOfWeek === '7' || dayOfWeek === 'CN') {
         weekendCoeff = defaultWeekendCoeff;
       }
+      const isRecurring = bookingData.LoaiDatLich === 2;
       const effectiveTimeSlotCoeff = isRecurring ? 1.0 : timeSlotCoeff;
 
       // Tính giá: tổng giá từ detailedServices (đã tính đúng số giờ từng dịch vụ)
       const baseServicesPrice = detailedServices.reduce((sum, item) => sum + item.price, 0);
       const sessionBasePrice = baseServicesPrice * durationCoeff;
+
       let sessionFinalPrice = sessionBasePrice * specialDayCoeff * effectiveTimeSlotCoeff * weekendCoeff;
 
       if (packageDiscountPercent > 0) {
@@ -279,6 +284,17 @@ class CustomerController {
 
   async getProviders(req, res, next) {
     try {
+      let customerId = null;
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        const { verifyToken } = require('../utils/ma_hoa');
+        const decoded = verifyToken(token);
+        if (decoded && decoded.MaNguoiDung) {
+          customerId = decoded.MaNguoiDung;
+        }
+      }
+
       const providers = await NguoiDung.findAll({
         where: { VaiTro: 2, TrangThaiTaiKhoan: 1 },
         attributes: ['MaNguoiDung', 'HoTenNguoiDung', 'Email', 'SoDienThoai', 'GioiTinh', 'AnhDaiDien'],
@@ -290,7 +306,43 @@ class CustomerController {
           }
         ]
       });
-      return success(res, providers, 'Lấy danh sách nhân viên thành công');
+
+      const providersWithOnlineStatus = providers.map(p => {
+        const plain = p.get({ plain: true });
+        plain.isOnline = oCamManager.userSockets.has(p.MaNguoiDung);
+        return plain;
+      });
+
+      let finalProviders = [];
+
+      if (customerId) {
+        const completedShifts = await CaLamViec.findAll({
+          where: {
+            MaKhachHang: customerId,
+            TrangThaiDonHang: 2,
+            MaNhanVien: { [Op.ne]: null }
+          },
+          attributes: ['MaNhanVien']
+        });
+
+        const previousHelperIds = [...new Set(completedShifts.map(s => s.MaNhanVien))];
+
+        if (previousHelperIds.length > 0) {
+          const oldHelpers = providersWithOnlineStatus.filter(p => previousHelperIds.includes(p.MaNguoiDung));
+          const otherHelpers = providersWithOnlineStatus.filter(p => !previousHelperIds.includes(p.MaNguoiDung));
+
+          oldHelpers.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+          otherHelpers.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+
+          finalProviders = [...oldHelpers, ...otherHelpers];
+        } else {
+          finalProviders = providersWithOnlineStatus.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+        }
+      } else {
+        finalProviders = providersWithOnlineStatus.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+      }
+
+      return success(res, finalProviders, 'Lấy danh sách nhân viên thành công');
     } catch (err) {
       next(err);
     }
@@ -639,12 +691,16 @@ class CustomerController {
         return error(res, 'Vui lòng nhập lý do hủy đơn', 400);
       }
 
-      tx = await sequelize.transaction();
-
       // Lấy tất cả ca làm việc chưa hoàn thành (0, 1) thuộc booking này để kiểm tra phạt
       const activeJobs = await CaLamViec.findAll({
         where: { MaDatLich: bookingId, TrangThaiDonHang: { [Op.in]: [0, 1] } }
       });
+
+      // RÀNG BUỘC 1: Nếu nhân viên đã nhấn bắt đầu thực hiện ca làm, không cho phép hủy đơn
+      const startedJob = activeJobs.find(job => job.ThoiGianBatDauThucTe !== null);
+      if (startedJob) {
+        return error(res, 'Không thể hủy đơn đặt lịch vì đã có ca làm việc được nhân viên bắt đầu thực hiện.', 400);
+      }
 
       let totalPenalty = 0;
       let penalties = []; // Lưu danh sách nhân viên được nhận bồi thường
@@ -653,14 +709,14 @@ class CustomerController {
       for (let job of activeJobs) {
         // Chỉ phạt nếu ca làm ĐÃ CÓ nhân viên nhận
         if (job.MaNhanVien) {
-          const jobStartStr = `${job.NgayLamViec}T${job.GioBatDau}`;
+          const jobStartStr = `${job.NgayLamViec}T${job.GioBatDau}+07:00`;
           const jobStartTime = new Date(jobStartStr);
           // Khoảng thời gian từ hiện tại đến lúc ca bắt đầu (tính bằng phút)
           const diffMins = (jobStartTime - now) / 1000 / 60;
           
-          // Phạt 10% nếu hủy sát giờ (<= 15 phút) hoặc đã qua giờ bắt đầu
+          // RÀNG BUỘC 2 & 3: Hủy trong vòng 15 phút hoặc trễ hơn -> Phạt 20% bồi thường cho nhân viên
           if (diffMins <= 15) {
-            const penalty = parseFloat(job.TongTien) * 0.10;
+            const penalty = parseFloat(job.TongTien) * 0.20;
             totalPenalty += penalty;
             penalties.push({
               providerId: job.MaNhanVien,
@@ -671,6 +727,8 @@ class CustomerController {
         }
       }
 
+      tx = await sequelize.transaction();
+
       // Nếu đã thanh toán (TrangThai = 2), thực hiện hoàn tiền và chia tiền bồi thường
       if (booking.TrangThai === 2) {
         const price = parseFloat(booking.GiaGoi);
@@ -679,16 +737,16 @@ class CustomerController {
         
         const customerWallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
         const systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
-
+ 
         if (customerWallet && systemWallet) {
           // Trừ toàn bộ tiền từ ví tạm giữ hệ thống (Escrow)
           const newSysBalance = parseFloat(systemWallet.SoDu) - price;
           await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
-
-          // Cộng tiền hoàn lại vào ví khách hàng (đã trừ phí phạt)
+ 
+          // Cộng tiền hoàn lại vào ví khách hàng (đã trừ phí phạt 20% bồi thường nhân viên)
           const newCustBalance = parseFloat(customerWallet.SoDu) + refundAmount;
           await customerWallet.update({ SoDu: newCustBalance }, { transaction: tx });
-
+ 
           // Ghi lịch sử giao dịch hoàn tiền cho khách (Loại 3: Hoàn tiền)
           await LichSuViTien.create({
             MaViNguon: systemWallet.MaViTien,
@@ -699,14 +757,14 @@ class CustomerController {
             SoDuSau: newCustBalance,
             NgayTao: new Date()
           }, { transaction: tx });
-
+ 
           // Phân bổ tiền bồi thường cho các nhân viên bị hủy ca sát giờ
           for (let p of penalties) {
             const providerWallet = await ViTien.findOne({ where: { MaNguoiDung: p.providerId } });
             if (providerWallet) {
               const newProvBalance = parseFloat(providerWallet.SoDu) + p.amount;
               await providerWallet.update({ SoDu: newProvBalance }, { transaction: tx });
-
+ 
               // Loại 5: Nhận bồi thường/thưởng
               await LichSuViTien.create({
                 MaViNguon: systemWallet.MaViTien,
@@ -717,11 +775,11 @@ class CustomerController {
                 SoDuSau: newProvBalance,
                 NgayTao: new Date()
               }, { transaction: tx });
-
+ 
               // Thông báo cho nhân viên được bồi thường
               oCamManager.guiThongBaoNguoiDung(p.providerId, {
                 tieuDe: 'Bồi thường hủy ca sát giờ',
-                noiDung: `Khách hàng đã hủy ca làm #${p.jobId} sát giờ. Bạn được bồi thường ${p.amount.toLocaleString('vi-VN')} đ vào ví.`
+                noiDung: `Khách hàng đã hủy ca làm #${p.jobId} sát giờ (dưới 15 phút). Bạn được bồi thường 20% (${p.amount.toLocaleString('vi-VN')} đ) vào ví.`
               });
             }
           }
@@ -741,12 +799,19 @@ class CustomerController {
 
       // Gửi thông báo hoàn tiền cho khách hàng
       const price = parseFloat(booking.GiaGoi);
+      const refundAmount = price - totalPenalty;
+      const customerRefundText = totalPenalty > 0 
+        ? `Đơn #${bookingId} đã được hủy. Bạn bị khấu trừ 20% tiền ca hủy sát giờ (dưới 15 phút). Số tiền ${refundAmount.toLocaleString('vi-VN')} đ đã được hoàn về ví.`
+        : `Đơn #${bookingId} đã được hủy. Số tiền ${price.toLocaleString('vi-VN')} đ đã được hoàn về ví của bạn.`;
+
       oCamManager.guiThongBaoNguoiDung(customerId, {
         tieuDe: 'Đơn đặt lịch đã bị hủy',
-        noiDung: `Đơn #${bookingId} đã được hủy. Số tiền ${price.toLocaleString('vi-VN')} đ đã được hoàn về ví của bạn.`,
+        noiDung: customerRefundText,
       });
 
-      return success(res, null, 'Hủy đơn đặt lịch thành công. Tiền đã được hoàn về ví của bạn.');
+      return success(res, null, totalPenalty > 0 
+        ? 'Hủy đơn đặt lịch thành công. Tiền hoàn đã được khấu trừ 20% bồi thường sát giờ và chuyển về ví của bạn.'
+        : 'Hủy đơn đặt lịch thành công. Tiền đã được hoàn về ví của bạn.');
     } catch (err) {
       if (tx) await tx.rollback();
       next(err);

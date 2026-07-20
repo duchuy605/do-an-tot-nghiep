@@ -29,7 +29,6 @@ class BookingCheckoutScreen extends StatefulWidget {
 
 class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
   final BookingCheckoutViewModel _viewModel = BookingCheckoutViewModel();
-  final _promoController = TextEditingController();
 
   @override
   void initState() {
@@ -39,13 +38,8 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
 
   @override
   void dispose() {
-    _promoController.dispose();
     _viewModel.dispose();
     super.dispose();
-  }
-
-  void _applyPromo() {
-    _viewModel.applyPromo(_promoController.text, _viewModel.estimatedPrice);
   }
 
   Future<void> _processPayment() async {
@@ -383,60 +377,6 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                     ]),
                     const SizedBox(height: 16),
 
-                    // === Card 4: Khuyến mãi ===
-                    _buildCard([
-                      const Text('Khuyến Mãi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: darkColor)),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _promoController,
-                              decoration: InputDecoration(
-                                hintText: 'Nhập mã giảm giá',
-                                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                                prefixIcon: const Icon(Icons.local_offer_outlined, color: Colors.grey, size: 20),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: orangeColor)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          ElevatedButton(
-                            onPressed: _applyPromo,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: orangeColor,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              elevation: 0,
-                            ),
-                            child: const Text('Áp dụng', style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ],
-                      ),
-                      if (_viewModel.promoSuccessMessage != null) ...[
-                        const SizedBox(height: 8),
-                        Text(_viewModel.promoSuccessMessage!, style: const TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.w500)),
-                      ],
-                      if (_viewModel.promoErrorMessage != null) ...[
-                        const SizedBox(height: 8),
-                        Text(_viewModel.promoErrorMessage!, style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w500)),
-                      ],
-                      const SizedBox(height: 12),
-                      const Text('Mã khuyến mãi:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _buildPromoTag('CleanGo50', '-50k'),
-                          const SizedBox(width: 8),
-                          _buildPromoTag('NHAMOI', 'Giảm 10%'),
-                        ],
-                      ),
-                    ]),
-                    const SizedBox(height: 16),
-
                     // === Card 5: Chi tiết thanh toán ===
                     _buildCard([
                       const Text('Chi Tiết Thanh Toán', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: darkColor)),
@@ -497,14 +437,22 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                           ],
                         ),
                       ],
+                      if (_viewModel.totalTimeSlotSurcharge > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildPriceRow('Phụ thu khung giờ', _viewModel.totalTimeSlotSurcharge),
+                      ],
+                      if (_viewModel.totalWeekendSurcharge > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildPriceRow('Phụ thu Thứ 7 / Chủ nhật', _viewModel.totalWeekendSurcharge),
+                      ],
+                      if (_viewModel.totalSpecialDaySurcharge > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildPriceRow('Phụ thu ngày Lễ/Tết', _viewModel.totalSpecialDaySurcharge),
+                      ],
                       const SizedBox(height: 10),
                       const Divider(),
                       const SizedBox(height: 4),
                       _buildPriceRow('Thành tiền (đã áp hệ số)', _viewModel.estimatedPrice),
-                      if (_viewModel.discountAmount > 0) ...[
-                        const SizedBox(height: 10),
-                        _buildPriceRow('Khuyến mãi', -_viewModel.discountAmount, isDiscount: true),
-                      ],
                       const SizedBox(height: 12),
                       const Divider(),
                       const SizedBox(height: 8),
@@ -680,28 +628,6 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPromoTag(String code, String desc) {
-    const orangeColor = Color(0xFFFF8225);
-    return GestureDetector(
-      onTap: () {
-        _promoController.text = code;
-        _applyPromo();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.orange.shade50,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.orange.shade200),
-        ),
-        child: Text(
-          '$code ($desc)',
-          style: const TextStyle(fontSize: 11, color: orangeColor, fontWeight: FontWeight.bold),
-        ),
-      ),
     );
   }
 }

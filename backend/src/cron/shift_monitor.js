@@ -5,7 +5,6 @@ const oCamManager = require('../sockets/o_cam_manager');
 let isRunning = false;
 let cronScheduled = false;
 
-// In-memory sets to track notifications to avoid adding db columns
 const notified15m = new Set();
 const notifiedLate = new Set();
 let lastDateString = '';
@@ -24,11 +23,10 @@ function getReminderWindowState(startTime, now) {
 
 function startShiftMonitorCron() {
   if (cronScheduled) {
-    console.log('[SHIFT MONITOR] startShiftMonitorCron called again, skipping duplicate schedule');
     return;
   }
   cronScheduled = true;
-  console.log('[SHIFT MONITOR] Scheduling shift monitor cron');
+ 
 
   // Chạy mỗi phút 1 lần
   cron.schedule('* * * * *', async () => {
@@ -60,18 +58,31 @@ function startShiftMonitorCron() {
         }
       });
 
+      console.log(`[Cron] Giám sát ca làm - Thời gian VN: ${today} ${nowVN.toISOString().split('T')[1].substring(0, 8)} | Tìm thấy ${shifts.length} ca cần theo dõi.`);
+
       for (const shift of shifts) {
         // Dùng giờ VN để tính thời gian bắt đầu ca
-        const startTimeStr = `${shift.NgayLamViec}T${shift.GioBatDau}+07:00`;
+        let dateStr = shift.NgayLamViec;
+        if (dateStr instanceof Date) {
+          const d = dateStr;
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          dateStr = `${year}-${month}-${day}`;
+        } else {
+          dateStr = String(dateStr).split('T')[0];
+        }
+
+        const startTimeStr = `${dateStr}T${shift.GioBatDau}+07:00`;
         const startTime = new Date(startTimeStr);
         const { diffSeconds, shouldSendReminder } = getReminderWindowState(startTime, now);
 
         const lateWindowStart = -16 * 60;
         const lateWindowEnd = -14 * 60;
 
-        // 1. Nhắc nhở Nhân viên trước 15 phút (chỉ gửi 1 lần)
+        // Nhắc nhở Nhân viên trước 15 phút (chỉ gửi 1 lần)
         if (shouldSendReminder && !notified15m.has(shift.MaCaLam)) {
-          console.log('[thong bao] Sending 15-minute reminder to provider', shift.MaNhanVien, 'for shift', shift.MaCaLam, 'diffSeconds', diffSeconds);
+          console.log(`[Cron] Gửi nhắc nhở 15 phút cho nhân viên #${shift.MaNhanVien} của ca làm #${shift.MaCaLam} (Bắt đầu: ${shift.GioBatDau})`);
           oCamManager.guiThongBaoNguoiDung(shift.MaNhanVien, {
             tieuDe: 'Sắp bắt đầu ca làm việc',
             noiDung: `Bạn có ca làm việc sẽ bắt đầu sau 15 phút nữa (lúc ${shift.GioBatDau.substring(0,5)}). Hãy chuẩn bị và nhớ nhấn "Bắt đầu" nhé!`,
@@ -86,7 +97,7 @@ function startShiftMonitorCron() {
           const provider = await NguoiDung.findByPk(shift.MaNhanVien);
           const providerName = provider ? provider.HoTenNguoiDung : 'Không rõ';
           
-          console.log('[thong bao] Sending late shift alert to Admin for shift', shift.MaCaLam, 'diffSeconds', diffSeconds);
+          console.log(`[Cron] Gửi cảnh báo trễ 15 phút cho Admin. Nhân viên ${providerName} chưa bấm Bắt đầu ca #${shift.MaCaLam}`);
           oCamManager.guiThongBaoAdmin({
             tieuDe: 'Nhân viên có thể đi trễ',
             noiDung: `Nhân viên ${providerName} vẫn chưa bấm "Bắt đầu" cho ca làm việc #${shift.MaCaLam} (Giờ bắt đầu: ${shift.GioBatDau.substring(0,5)}). Đã trễ 15 phút!`,
@@ -99,7 +110,7 @@ function startShiftMonitorCron() {
 
       const runDuration = Date.now() - runStart;
     } catch (error) {
-      console.error('Lỗi khi chạy cron giám sát ca làm:', error);
+      console.error('[Cron Error] Lỗi khi chạy cron giám sát ca làm:', error);
     } finally {
       isRunning = false;
     }

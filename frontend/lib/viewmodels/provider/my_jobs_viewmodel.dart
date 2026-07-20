@@ -27,6 +27,7 @@ class MyJobsViewModel extends ChangeNotifier {
       if (profileResponse['success'] == true && jobsResponse['success'] == true) {
         final currentUserId = profileResponse['data']['MaNguoiDung'];
         final List list = jobsResponse['data'] ?? [];
+        //lọc đống việc đó. Ca nào có mã thằng thợ (MaNhanVien) bằng đúng số 69 thì nhận!
         _myJobs = list.where((job) => job['MaNhanVien'] == currentUserId).toList();
       } else {
         _errorMessage = jobsResponse['message'] ?? 'Lỗi tải danh sách công việc của tôi';
@@ -77,6 +78,22 @@ class MyJobsViewModel extends ChangeNotifier {
 
     try {
       final response = await ApiService.rejectJob(caLamId, lyDoHuy: lyDoHuy ?? '');
+      _isLoading = false;
+      notifyListeners();
+      return response;
+    } catch (_) {
+      _isLoading = false;
+      notifyListeners();
+      return {'success': false, 'message': 'Lỗi kết nối.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelJob(int caLamId, {String? lyDoHuy}) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.cancelJob(caLamId, lyDoHuy: lyDoHuy ?? '');
       _isLoading = false;
       notifyListeners();
       return response;
