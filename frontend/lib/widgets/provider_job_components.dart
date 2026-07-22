@@ -242,6 +242,17 @@ class ProviderJobCard extends StatelessWidget {
     final String customerName = job['KhachHang']?['HoTenNguoiDung'] ?? 'Khách hàng';
     final String customerPhone = job['KhachHang']?['SoDienThoai'] ?? '';
 
+    bool isPastDay = false;
+    if (date.isNotEmpty) {
+      try {
+        final parsedDate = DateTime.parse(date);
+        final today = DateTime.now();
+        final todayDate = DateTime(today.year, today.month, today.day);
+        final jobDate = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+        isPastDay = jobDate.isBefore(todayDate);
+      } catch (_) {}
+    }
+
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => showJobDetailSheet(context, job, orangeColor, darkColor, callbacks),
@@ -368,15 +379,15 @@ class ProviderJobCard extends StatelessWidget {
                     Row(
                       children: [
                         OutlinedButton(
-                          onPressed: job['ThoiGianBatDauThucTe'] != null
+                          onPressed: (job['ThoiGianBatDauThucTe'] != null || isPastDay)
                               ? null
                               : () => callbacks.onRescheduleJob(job),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: job['ThoiGianBatDauThucTe'] != null
+                            foregroundColor: (job['ThoiGianBatDauThucTe'] != null || isPastDay)
                                 ? Colors.grey
                                 : orangeColor,
                             side: BorderSide(
-                                color: job['ThoiGianBatDauThucTe'] != null
+                                color: (job['ThoiGianBatDauThucTe'] != null || isPastDay)
                                     ? Colors.grey
                                     : orangeColor),
                             shape: RoundedRectangleBorder(
@@ -388,10 +399,10 @@ class ProviderJobCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         if (job['ThoiGianBatDauThucTe'] == null) ...[
                           OutlinedButton(
-                            onPressed: () => callbacks.onCancelJob(id),
+                            onPressed: isPastDay ? null : () => callbacks.onCancelJob(id),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red,
-                              side: const BorderSide(color: Colors.red),
+                              foregroundColor: isPastDay ? Colors.grey : Colors.red,
+                              side: BorderSide(color: isPastDay ? Colors.grey : Colors.red),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8)),
                               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -402,9 +413,9 @@ class ProviderJobCard extends StatelessWidget {
                         ],
                         if (job['ThoiGianBatDauThucTe'] == null)
                           ElevatedButton(
-                            onPressed: () => callbacks.onStartJob(id),
+                            onPressed: isPastDay ? null : () => callbacks.onStartJob(id),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
+                              backgroundColor: isPastDay ? Colors.grey : Colors.blue,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -413,9 +424,9 @@ class ProviderJobCard extends StatelessWidget {
                           )
                         else
                           ElevatedButton(
-                            onPressed: () => callbacks.onCompleteJob(id),
+                            onPressed: isPastDay ? null : () => callbacks.onCompleteJob(id),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
+                              backgroundColor: isPastDay ? Colors.grey : Colors.green,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -453,6 +464,17 @@ void showJobDetailSheet(BuildContext context, dynamic job, Color orangeColor, Co
   final String customerName = job['KhachHang']?['HoTenNguoiDung'] ?? 'Khách hàng';
   final String customerPhone = job['KhachHang']?['SoDienThoai'] ?? '';
   final String customerEmail = job['KhachHang']?['Email'] ?? '';
+
+  bool isPastDay = false;
+  if (date.isNotEmpty) {
+    try {
+      final parsedDate = DateTime.parse(date);
+      final today = DateTime.now();
+      final todayDate = DateTime(today.year, today.month, today.day);
+      final jobDate = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+      isPastDay = jobDate.isBefore(todayDate);
+    } catch (_) {}
+  }
 
   showModalBottomSheet(
     context: context,
@@ -691,12 +713,12 @@ void showJobDetailSheet(BuildContext context, dynamic job, Color orangeColor, Co
                   if (job['ThoiGianBatDauThucTe'] == null) ...[
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () { Navigator.pop(context); callbacks.onCancelJob(id); },
+                        onPressed: isPastDay ? null : () { Navigator.pop(context); callbacks.onCancelJob(id); },
                         icon: const Icon(Icons.cancel_outlined, size: 18),
                         label: const Text('Hủy'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
+                          foregroundColor: isPastDay ? Colors.grey : Colors.red,
+                          side: BorderSide(color: isPastDay ? Colors.grey : Colors.red),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -706,17 +728,17 @@ void showJobDetailSheet(BuildContext context, dynamic job, Color orangeColor, Co
                   ],
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: job['ThoiGianBatDauThucTe'] != null
+                      onPressed: (job['ThoiGianBatDauThucTe'] != null || isPastDay)
                           ? null
                           : () { Navigator.pop(context); callbacks.onRescheduleJob(job); },
                       icon: const Icon(Icons.event_repeat_rounded, size: 18),
                       label: const Text('Đổi Lịch'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: job['ThoiGianBatDauThucTe'] != null
+                        foregroundColor: (job['ThoiGianBatDauThucTe'] != null || isPastDay)
                             ? Colors.grey
                             : orangeColor,
                         side: BorderSide(
-                            color: job['ThoiGianBatDauThucTe'] != null
+                            color: (job['ThoiGianBatDauThucTe'] != null || isPastDay)
                                 ? Colors.grey
                                 : orangeColor),
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -729,11 +751,11 @@ void showJobDetailSheet(BuildContext context, dynamic job, Color orangeColor, Co
                   if (job['ThoiGianBatDauThucTe'] == null)
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () { Navigator.pop(context); callbacks.onStartJob(id); },
+                        onPressed: isPastDay ? null : () { Navigator.pop(context); callbacks.onStartJob(id); },
                         icon: const Icon(Icons.play_arrow_rounded, size: 18),
                         label: const Text('BẮT ĐẦU'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
+                          backgroundColor: isPastDay ? Colors.grey : Colors.blue,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -743,11 +765,11 @@ void showJobDetailSheet(BuildContext context, dynamic job, Color orangeColor, Co
                   else
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () { Navigator.pop(context); callbacks.onCompleteJob(id); },
+                        onPressed: isPastDay ? null : () { Navigator.pop(context); callbacks.onCompleteJob(id); },
                         icon: const Icon(Icons.check_circle_outline, size: 18),
                         label: const Text('HOÀN THÀNH'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: isPastDay ? Colors.grey : Colors.green,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -835,6 +857,17 @@ void showRecurringDetailSheet(BuildContext context, List<dynamic> jobs, Color or
               final double money = double.tryParse(job['TongTien']?.toString() ?? '0') ?? 0;
               final double providerEarnings = money * 0.8;
               final String earningsStr = '${NumberFormat('#,###', 'vi_VN').format(providerEarnings.toInt())} đ';
+
+              bool isPastDay = false;
+              if (date.isNotEmpty) {
+                try {
+                  final parsedDate = DateTime.parse(date);
+                  final today = DateTime.now();
+                  final todayDate = DateTime(today.year, today.month, today.day);
+                  final jobDate = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+                  isPastDay = jobDate.isBefore(todayDate);
+                } catch (_) {}
+              }
 
               Color statusColor;
               String statusText;
@@ -938,15 +971,15 @@ void showRecurringDetailSheet(BuildContext context, List<dynamic> jobs, Color or
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           OutlinedButton(
-                            onPressed: job['ThoiGianBatDauThucTe'] != null
+                            onPressed: (job['ThoiGianBatDauThucTe'] != null || isPastDay)
                                 ? null
                                 : () { Navigator.pop(context); callbacks.onRescheduleJob(job); },
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: job['ThoiGianBatDauThucTe'] != null
+                              foregroundColor: (job['ThoiGianBatDauThucTe'] != null || isPastDay)
                                   ? Colors.grey
                                   : orangeColor,
                               side: BorderSide(
-                                  color: job['ThoiGianBatDauThucTe'] != null
+                                  color: (job['ThoiGianBatDauThucTe'] != null || isPastDay)
                                       ? Colors.grey
                                       : orangeColor),
                               shape: RoundedRectangleBorder(
@@ -960,9 +993,9 @@ void showRecurringDetailSheet(BuildContext context, List<dynamic> jobs, Color or
                           const SizedBox(width: 8),
                           if (job['ThoiGianBatDauThucTe'] == null)
                             ElevatedButton(
-                              onPressed: () { Navigator.pop(context); callbacks.onStartJob(caLamId); },
+                              onPressed: isPastDay ? null : () { Navigator.pop(context); callbacks.onStartJob(caLamId); },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
+                                backgroundColor: isPastDay ? Colors.grey : Colors.blue,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 minimumSize: Size.zero,
@@ -972,9 +1005,9 @@ void showRecurringDetailSheet(BuildContext context, List<dynamic> jobs, Color or
                             )
                           else
                             ElevatedButton(
-                              onPressed: () { Navigator.pop(context); callbacks.onCompleteJob(caLamId); },
+                              onPressed: isPastDay ? null : () { Navigator.pop(context); callbacks.onCompleteJob(caLamId); },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
+                                backgroundColor: isPastDay ? Colors.grey : Colors.green,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 minimumSize: Size.zero,

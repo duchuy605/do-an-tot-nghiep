@@ -15,6 +15,8 @@ class BookingCheckoutViewModel extends ChangeNotifier {
   double _baseRatePerHour = 0;
   double _packageDiscountPercent = 0;
   double _providerSurchargePercent = 0;
+  double _durationCoeff = 1.0;
+  double _totalDurationDiscount = 0.0;
   List<dynamic> _detailedServices = [];
   double _totalTimeSlotSurcharge = 0;
   double _totalWeekendSurcharge = 0;
@@ -36,6 +38,8 @@ class BookingCheckoutViewModel extends ChangeNotifier {
   double get baseRatePerHour => _baseRatePerHour;
   double get packageDiscountPercent => _packageDiscountPercent;
   double get providerSurchargePercent => _providerSurchargePercent;
+  double get durationCoeff => _durationCoeff;
+  double get totalDurationDiscount => _totalDurationDiscount;
   List<dynamic> get detailedServices => _detailedServices;
   double get discountAmount => _discountAmount;
   String? get promoSuccessMessage => _promoSuccessMessage;
@@ -73,7 +77,15 @@ class BookingCheckoutViewModel extends ChangeNotifier {
         _baseRatePerHour = (data['baseRatePerHour'] as num?)?.toDouble() ?? 0;
         _packageDiscountPercent = (data['packageDiscountPercent'] as num?)?.toDouble() ?? 0;
         _providerSurchargePercent = (data['providerSurchargePercent'] as num?)?.toDouble() ?? 0;
+        _durationCoeff = (data['durationCoeff'] as num?)?.toDouble() ?? 1.0;
         _detailedServices = data['detailedServices'] ?? [];
+
+        double baseServicesPrice = 0.0;
+        for (var s in _detailedServices) {
+          baseServicesPrice += (s['price'] as num?)?.toDouble() ?? 0.0;
+        }
+        _totalDurationDiscount = baseServicesPrice * (1.0 - _durationCoeff) * _totalSessions;
+        _totalDurationDiscount = (_totalDurationDiscount / 1000).round() * 1000;
 
         // Tính tổng phụ thu từ sessionDetails bằng cách sử dụng các hệ số
         final sessions = data['sessionDetails'] as List<dynamic>? ?? [];
