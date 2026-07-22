@@ -46,7 +46,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
     final response = await _viewModel.processPayment(widget.bookingData);
 
     if (!mounted) return;
-
+ 
     if (response['insufficientBalance'] == true) {
       _showInsufficientBalanceDialog();
       return;

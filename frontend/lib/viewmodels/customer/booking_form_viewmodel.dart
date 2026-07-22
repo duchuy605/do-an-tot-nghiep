@@ -339,7 +339,7 @@ class BookingFormViewModel extends ChangeNotifier {
       _startDate.day,
     );
   }
-
+  // Chuyển timeofday của flutter thành chuỗi giờ theo định dạng mà backend yêu cầu
   String _formatTimeOfDay(TimeOfDay time) {
     final String hour = time.hour.toString().padLeft(2, '0');
     final String minute = time.minute.toString().padLeft(2, '0');
@@ -347,8 +347,8 @@ class BookingFormViewModel extends ChangeNotifier {
   }
 
   String _calculateEndTime(TimeOfDay start, double durationHours) {
-    int hoursToAdd = durationHours.floor();
-    int minutesToAdd = ((durationHours - hoursToAdd) * 60).round();
+    int hoursToAdd = durationHours.floor(); //tách giờ
+    int minutesToAdd = ((durationHours - hoursToAdd) * 60).round(); // tách phút
     
     int endMinute = start.minute + minutesToAdd;
     int endHour = start.hour + hoursToAdd;
@@ -415,32 +415,6 @@ class BookingFormViewModel extends ChangeNotifier {
     };
   }
 
-  /// Thực hiện quá trình Submit form tạo đơn đặt lịch thực sự lên server API
-  /// Trả về một Map chứa success (true/false) và message phản hồi từ server
-  Future<Map<String, dynamic>> submitBooking(String address, String desc, int serviceId) async {
-    _isLoading = true; // Bật cờ loading để khóa form
-    _errorMessage = null;
-    notifyListeners();
-
-    // 1. Sinh dữ liệu chuẩn từ Form
-    final bookingData = buildBookingData(address, desc, serviceId);
-
-    try {
-      // 2. Gửi request POST tạo đơn lịch mới tới API backend
-      final response = await ApiService.createBooking(bookingData);
-      _isLoading = false;
-      if (response['success'] != true) {
-        _errorMessage = response['message'] ?? 'Tạo đơn đặt lịch thất bại.'; // Bắt lỗi nghiệp vụ từ server
-      }
-      notifyListeners();
-      return response; // Trả kết quả về cho Controller/UI xử lý tiếp (ví dụ: chuyển trang)
-    } catch (e) {
-      // Bắt các lỗi về Network hoặc Exception
-      _isLoading = false;
-      _errorMessage = 'Lỗi kết nối hoặc dữ liệu gửi đi không hợp lệ.';
-      notifyListeners();
-      return {'success': false, 'message': _errorMessage};
-    }
-  }
+ 
 }
 

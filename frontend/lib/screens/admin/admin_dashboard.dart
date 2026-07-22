@@ -167,7 +167,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       width: 32,
                       height: height < 10 ? 10 : height,
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.8),
+                        color: Colors.blue.withValues(alpha: .8),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
