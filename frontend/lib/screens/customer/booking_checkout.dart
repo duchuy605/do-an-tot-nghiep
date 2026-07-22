@@ -429,7 +429,10 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Giảm giá thời lượng ca', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                            Text(
+                              'Giảm giá ca làm ${widget.durationHours.toStringAsFixed(1)} giờ (${((1.0 - _viewModel.durationCoeff) * 100).toStringAsFixed(0)}%)',
+                              style: const TextStyle(color: Colors.grey, fontSize: 14),
+                            ),
                             Text(
                               '-${_formatCurrency(_viewModel.totalDurationDiscount)}',
                               style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: Colors.green),
