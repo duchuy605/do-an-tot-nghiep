@@ -46,7 +46,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
     final response = await _viewModel.processPayment(widget.bookingData);
 
     if (!mounted) return;
-
+ 
     if (response['insufficientBalance'] == true) {
       _showInsufficientBalanceDialog();
       return;
@@ -419,6 +419,22 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                             const Text('Giảm giá gói', style: TextStyle(color: Colors.grey, fontSize: 14)),
                             Text(
                               '-${_viewModel.packageDiscountPercent.toStringAsFixed(0)}%',
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: Colors.green),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (_viewModel.totalDurationDiscount > 0) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Giảm giá ca làm ${widget.durationHours.toStringAsFixed(1)} giờ (${((1.0 - _viewModel.durationCoeff) * 100).toStringAsFixed(0)}%)',
+                              style: const TextStyle(color: Colors.grey, fontSize: 14),
+                            ),
+                            Text(
+                              '-${_formatCurrency(_viewModel.totalDurationDiscount)}',
                               style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: Colors.green),
                             ),
                           ],

@@ -222,8 +222,16 @@ class ProviderController {
         return error(res, 'Chỉ có thể bắt đầu ca làm việc ở trạng thái đã nhận', 400);
       }
 
+      // RÀNG BUỘC: Không cho phép bắt đầu ca làm việc của ngày đã qua trong quá khứ
+      const tzOffset = 7 * 60 * 60 * 1000;
+      const nowVN = new Date(Date.now() + tzOffset);
+      const todayVNStr = nowVN.toISOString().split('T')[0];
+      if (job.NgayLamViec < todayVNStr) {
+        return error(res, 'Không thể thực hiện thao tác trên ca làm việc của ngày đã qua trong quá khứ.', 400);
+      }
+
       // Kiểm tra thời gian bắt đầu ca (chỉ cho phép trước tối đa 10 phút và không quá giờ kết thúc dự kiến)
-      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+      const now = new Date();
       
       const scheduledStart = new Date(`${job.NgayLamViec}T${job.GioBatDau}+07:00`);
       const scheduledEnd = new Date(`${job.NgayLamViec}T${job.GioKetThuc}+07:00`);
@@ -379,8 +387,16 @@ class ProviderController {
         return error(res, 'Bạn chưa bấm "Bắt đầu" thực hiện ca làm việc này. Không thể bấm Hoàn thành.', 400);
       }
 
+      // RÀNG BUỘC: Không cho phép hoàn thành ca làm việc của ngày đã qua trong quá khứ
+      const tzOffset = 7 * 60 * 60 * 1000;
+      const nowVN = new Date(Date.now() + tzOffset);
+      const todayVNStr = nowVN.toISOString().split('T')[0];
+      if (job.NgayLamViec < todayVNStr) {
+        return error(res, 'Không thể thực hiện thao tác trên ca làm việc của ngày đã qua trong quá khứ.', 400);
+      }
+
       // Kiểm tra ngày và giờ làm việc: chỉ cho hoàn thành khi đã đến ngày và trước giờ kết thúc tối đa 15 phút
-      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+      const now = new Date();
       
       const scheduledEnd = new Date(`${job.NgayLamViec}T${job.GioKetThuc}+07:00`);
       

@@ -134,13 +134,14 @@ class CustomerController {
     const timeSlots = await QuyDinhKhungGio.findAll();
     const packageInfo = MaLoaiGoi ? await LoaiGoi.findByPk(MaLoaiGoi) : null;
 
-    // Tìm quy định giá có số giờ gần nhất với duration của ca làm
+    // Tìm quy định giá theo cơ chế bậc thang (ngưỡng dưới):
+    // Chọn quy định giá có rule.SoGio <= duration nhưng là mốc lớn nhất
     let matchedPriceRule = null;
-    let minDiff = Infinity;
+    let maxSoGio = -1;
     for (const rule of priceRules) {
-      const diff = Math.abs(parseFloat(rule.SoGio) - duration);
-      if (diff < minDiff) {
-        minDiff = diff;
+      const ruleHours = parseFloat(rule.SoGio);
+      if (ruleHours <= duration && ruleHours > maxSoGio) {
+        maxSoGio = ruleHours;
         matchedPriceRule = rule;
       }
     }
@@ -224,7 +225,8 @@ class CustomerController {
       duration,
       totalSessions: dates.length,
       packageDiscountPercent,
-      providerSurchargePercent: selectedProviderId ? 10 : 0
+      providerSurchargePercent: selectedProviderId ? 10 : 0,
+      durationCoeff
     };
   }
 
@@ -245,7 +247,8 @@ class CustomerController {
         totalSessions: calculation.totalSessions,
         packageDiscountPercent: calculation.packageDiscountPercent,
         providerSurchargePercent: calculation.providerSurchargePercent,
-        sessionDetails: calculation.sessionDetails
+        sessionDetails: calculation.sessionDetails,
+        durationCoeff: calculation.durationCoeff
       }, 'Tính giá thành công');
     } catch (err) {
       return error(res, err.message || 'Lỗi khi tính giá', 400);
