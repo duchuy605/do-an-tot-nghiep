@@ -222,15 +222,27 @@ class ProviderController {
         return error(res, 'Chỉ có thể bắt đầu ca làm việc ở trạng thái đã nhận', 400);
       }
 
-      // Kiểm tra thời gian bắt đầu ca (chỉ cho phép trước tối đa 10 phút)
+      // Kiểm tra thời gian bắt đầu ca (chỉ cho phép trước tối đa 10 phút và không quá giờ kết thúc dự kiến)
       const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-      const [hours, minutes] = job.GioBatDau.split(':');
-      const scheduledStart = new Date(now);
-      scheduledStart.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
-      const diffMinutes = (now - scheduledStart) / (1000 * 60);
-      if (diffMinutes < -10) {
+      const scheduledStart = new Date(`${job.NgayLamViec}T${job.GioBatDau}+07:00`);
+      const scheduledEnd = new Date(`${job.NgayLamViec}T${job.GioKetThuc}+07:00`);
+      
+      const diffMinutesFromStart = (now - scheduledStart) / (1000 * 60);
+      
+      // Chặn bắt đầu quá sớm (trước > 10 phút)
+      if (diffMinutesFromStart < -10) {
         return error(res, `Chỉ được phép bắt đầu ca trước giờ hẹn tối đa 10 phút. Ca làm của bạn bắt đầu lúc ${job.GioBatDau.substring(0,5)}.`, 400);
+      }
+      
+      // Chặn bắt đầu quá trễ (quá giờ kết thúc ca)
+      if (now > scheduledEnd) {
+        return error(res, `Không thể bắt đầu ca làm việc vì thời gian kết thúc dự kiến của ca làm (${job.GioKetThuc.substring(0,5)}) đã trôi qua.`, 400);
+      }
+      
+      // Chặn bắt đầu quá trễ (trễ quá 2 tiếng so với giờ bắt đầu)
+      if (diffMinutesFromStart > 120) {
+        return error(res, `Bạn đã trễ quá 2 tiếng so với giờ bắt đầu ca làm (${job.GioBatDau.substring(0,5)}). Vui lòng liên hệ Admin hoặc Khách hàng để được hỗ trợ.`, 400);
       }
 
       // Đánh dấu thời điểm bắt đầu thực tế
@@ -362,23 +374,26 @@ class ProviderController {
         return error(res, 'Chỉ có thể hoàn thành ca làm việc đang ở trạng thái đã nhận', 400);
       }
 
-      // Kiểm tra ngày và giờ làm việc: chỉ cho hoàn thành khi đã đến ngày và trước giờ kết thúc tối đa 15 phút
-      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-      const today = new Date(now);
-      today.setHours(0, 0, 0, 0);
-      const ngayLam = new Date(job.NgayLamViec);
-      ngayLam.setHours(0, 0, 0, 0);
-      if (today < ngayLam) {
-        return error(res, `Chưa đến ngày làm việc (${job.NgayLamViec}). Không thể hoàn thành ca trước ngày hẹn.`, 400);
+      // RÀNG BUỘC 1: Nhân viên phải nhấn bắt đầu thực tế trước khi nhấn hoàn thành
+      if (!job.ThoiGianBatDauThucTe) {
+        return error(res, 'Bạn chưa bấm "Bắt đầu" thực hiện ca làm việc này. Không thể bấm Hoàn thành.', 400);
       }
 
-      const [endHours, endMinutes] = job.GioKetThuc.split(':');
-      const scheduledEnd = new Date(now);
-      scheduledEnd.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
-
+      // Kiểm tra ngày và giờ làm việc: chỉ cho hoàn thành khi đã đến ngày và trước giờ kết thúc tối đa 15 phút
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+      
+      const scheduledEnd = new Date(`${job.NgayLamViec}T${job.GioKetThuc}+07:00`);
+      
       const diffMinutesToEnd = (scheduledEnd - now) / (1000 * 60);
+      
+      // Chặn hoàn thành quá sớm (trước > 15 phút)
       if (diffMinutesToEnd > 15) {
         return error(res, `Chỉ được phép hoàn thành ca làm trước giờ kết thúc tối đa 15 phút. Giờ kết thúc ca: ${job.GioKetThuc.substring(0,5)}.`, 400);
+      }
+
+      // Chặn hoàn thành quá trễ (trễ quá 4 tiếng so với giờ kết thúc dự kiến)
+      if (diffMinutesToEnd < -240) {
+        return error(res, `Không thể hoàn thành ca làm việc vì thời gian kết thúc dự kiến của ca làm (${job.GioKetThuc.substring(0,5)}) đã quá hạn hơn 4 tiếng.`, 400);
       }
 
       const splitProvider = parseInt(process.env.REVENUE_SPLIT_PROVIDER || 80);
