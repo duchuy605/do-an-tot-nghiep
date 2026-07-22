@@ -87,9 +87,6 @@ class BookingCheckoutViewModel extends ChangeNotifier {
         _totalDurationDiscount = baseServicesPrice * (1.0 - _durationCoeff) * _totalSessions;
         _totalDurationDiscount = (_totalDurationDiscount / 1000).round() * 1000;
 
-        debugPrint('[CLEANGO] API response durationCoeff: $_durationCoeff');
-        debugPrint('[CLEANGO] Calculated totalDurationDiscount: $_totalDurationDiscount');
-
         // Tính tổng phụ thu từ sessionDetails bằng cách sử dụng các hệ số
         final sessions = data['sessionDetails'] as List<dynamic>? ?? [];
         _totalTimeSlotSurcharge = 0;
