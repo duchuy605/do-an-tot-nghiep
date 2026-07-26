@@ -583,9 +583,9 @@ class ApiService {
   /// Lấy dữ liệu tổng quan dashboard
   /// GET /api/admin/dashboard
   /// Trả về: tổng doanh thu, số đơn, số người dùng, thống kê, ...
-  static Future<Map<String, dynamic>> getDashboard() async {
+  static Future<Map<String, dynamic>> getDashboard({int weekOffset = 0}) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/admin/dashboard'),
+      Uri.parse('$baseUrl/admin/dashboard?weekOffset=$weekOffset'),
       headers: await _headers(),
     );
     return jsonDecode(response.body);

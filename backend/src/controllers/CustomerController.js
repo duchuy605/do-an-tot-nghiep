@@ -70,6 +70,14 @@ class CustomerController {
     }
 
     // 2. Tính số giờ làm việc thực tế
+    const startHour = parseInt(GioBatDau.split(':')[0]);
+    const endHour = parseInt(GioKetThuc.split(':')[0]);
+    const endMinute = parseInt(GioKetThuc.split(':')[1] || 0);
+
+    if (startHour < 6 || endHour > 22 || (endHour === 22 && endMinute > 0)) {
+      throw new Error('Thời gian hoạt động của ứng dụng là từ 06:00 đến 22:00. Vui lòng chọn khung giờ khác.');
+    }
+
     const duration = getDurationInHours(GioBatDau, GioKetThuc);
     if (duration <= 0) {
       throw new Error('Giờ kết thúc phải sau giờ bắt đầu');
@@ -800,6 +808,14 @@ class CustomerController {
       const duration = getDurationInHours(GioBatDau, GioKetThuc);
       if (duration <= 0) {
         return error(res, 'Giờ kết thúc phải sau giờ bắt đầu', 400);
+      }
+
+      const startHour = parseInt(GioBatDau.split(':')[0]);
+      const endHour = parseInt(GioKetThuc.split(':')[0]);
+      const endMinute = parseInt(GioKetThuc.split(':')[1] || 0);
+
+      if (startHour < 6 || endHour > 22 || (endHour === 22 && endMinute > 0)) {
+        return error(res, 'Thời gian hoạt động của ứng dụng là từ 06:00 đến 22:00. Vui lòng chọn khung giờ khác.', 400);
       }
 
       const newStart = new Date(`${NgayLamViec}T${GioBatDau.length === 5 ? `${GioBatDau}:00` : GioBatDau}`);

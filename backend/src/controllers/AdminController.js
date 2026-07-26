@@ -546,6 +546,105 @@ class AdminController {
       const totalRevenue = finishedCaLam.reduce((sum, job) => sum + parseFloat(job.TongTien), 0);
       const systemEarnings = finishedCaLam.reduce((sum, job) => sum + parseFloat(job.TienHeThongNhan), 0);
 
+      // ==========================================
+      // THỐNG KÊ MỚI: DỮ LIỆU TRONG TUẦN HIỆN TẠI (CÓ THỂ TUỲ CHỈNH TUẦN)
+      // ==========================================
+      const weekOffset = parseInt(req.query.weekOffset) || 0;
+      const todayDate = new Date();
+      if (weekOffset !== 0) {
+        todayDate.setDate(todayDate.getDate() + (weekOffset * 7));
+      }
+      
+      const currentDayOfWeek = todayDate.getDay(); // 0 is Sunday
+      const diffToMonday = todayDate.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
+      const startOfWeekDate = new Date(todayDate.setDate(diffToMonday));
+      startOfWeekDate.setHours(0, 0, 0, 0);
+
+      const endOfWeekDate = new Date(startOfWeekDate);
+      endOfWeekDate.setDate(endOfWeekDate.getDate() + 6);
+      endOfWeekDate.setHours(23, 59, 59, 999);
+
+      const bookingsThisWeek = await DonDatLich.findAll({
+        where: {
+          NgayBatDau: { 
+            [Op.gte]: startOfWeekDate,
+            [Op.lte]: endOfWeekDate 
+          }
+        },
+        include: [{
+          model: DatDichVu,
+          as: 'DatDichVus',
+          include: [{ model: DichVu, as: 'DichVu' }]
+        }]
+      });
+
+      let bookingsByDayMap = {};
+      
+      // Khởi tạo sẵn 7 ngày trong tuần với giá trị 0
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(startOfWeekDate);
+        d.setDate(d.getDate() + i);
+        const dStr = d.toISOString().split('T')[0];
+        bookingsByDayMap[dStr] = { oneTime: 0, recurring: 0 };
+      }
+
+      let topServicesMap = {};
+      let topTimeSlotsMap = {};
+
+      bookingsThisWeek.forEach(booking => {
+        // 1. Thống kê Lượt đặt (Ca lẻ vs Định kỳ) theo ngày
+        const dateStr = new Date(booking.NgayBatDau).toISOString().split('T')[0];
+        if (bookingsByDayMap[dateStr]) {
+          const isRecurring = booking.SoBuoi > 1 || booking.ThuTrongTuan;
+          if (isRecurring) {
+            bookingsByDayMap[dateStr].recurring += 1;
+          } else {
+            bookingsByDayMap[dateStr].oneTime += 1;
+          }
+        }
+
+        // 2. Thống kê Top Dịch vụ
+        if (booking.DatDichVus) {
+          booking.DatDichVus.forEach(ddv => {
+            if (ddv.DichVu && ddv.DichVu.TenDichVu) {
+              const serviceName = ddv.DichVu.TenDichVu;
+              if (!topServicesMap[serviceName]) {
+                topServicesMap[serviceName] = 0;
+              }
+              topServicesMap[serviceName] += 1;
+            }
+          });
+        }
+
+        // 3. Thống kê Top Khung giờ
+        const startH = booking.GioBatDau ? booking.GioBatDau.substring(0, 5) : '';
+        const endH = booking.GioKetThuc ? booking.GioKetThuc.substring(0, 5) : '';
+        if (startH && endH) {
+          const slot = `${startH} - ${endH}`;
+          if (!topTimeSlotsMap[slot]) {
+            topTimeSlotsMap[slot] = 0;
+          }
+          topTimeSlotsMap[slot] += 1;
+        }
+      });
+
+      // Format mảng dữ liệu
+      const topServicesArr = Object.keys(topServicesMap).map(key => ({
+        name: key,
+        count: topServicesMap[key]
+      })).sort((a, b) => b.count - a.count).slice(0, 5); // Lấy top 5
+
+      const topTimeSlotsArr = Object.keys(topTimeSlotsMap).map(key => ({
+        slot: key,
+        count: topTimeSlotsMap[key]
+      })).sort((a, b) => b.count - a.count).slice(0, 5); // Lấy top 5
+
+      const bookingsByDayArr = Object.keys(bookingsByDayMap).map(key => ({
+        date: key,
+        oneTime: bookingsByDayMap[key].oneTime,
+        recurring: bookingsByDayMap[key].recurring
+      })).sort((a, b) => new Date(a.date) - new Date(b.date));
+
       const metrics = {
         totalCustomers,
         totalProviders,
@@ -556,7 +655,12 @@ class AdminController {
         completedBookings,
         shiftStats,
         cashFlowStats,
-        weeklyShifts
+        weeklyShifts,
+        newStatsThisWeek: {
+          bookingsByDay: bookingsByDayArr,
+          topServices: topServicesArr,
+          topTimeSlots: topTimeSlotsArr
+        }
       };
 
       return success(res, metrics, 'Lấy dữ liệu thống kê thành công');
