@@ -51,6 +51,10 @@ oCamManager.initialize(server);
 const cron = require('node-cron');
 const { CaLamViec } = require('./models');
 const { checkAndExecutePayoutsForProvider } = require('./utils/payout_helper');
+const { startShiftMonitorCron } = require('./cron/shift_monitor');
+
+// Khởi chạy tiến trình nhắc nhở nhân viên đi làm / đi trễ
+startShiftMonitorCron();
 
 cron.schedule('*/5 * * * *', async () => {
   try {

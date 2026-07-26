@@ -74,41 +74,48 @@ async function checkAndExecutePayoutsForProvider(providerId) {
 
     tx = await sequelize.transaction();
 
-    let totalPayout = 0;
+    let currentProvBalance = parseFloat(providerWallet.SoDu);
+    let currentSysBalance = parseFloat(systemWallet.SoDu);
+    let processedShifts = 0;
+
     for (const shift of validShifts) {
       // Kiểm tra lại Database một lần nữa bằng CSDL để chống Double Spending (Race Condition)
       const checkShift = await CaLamViec.findOne({ where: { MaCaLam: shift.MaCaLam, DaThanhToan: false }, transaction: tx });
       if (!checkShift) continue;
 
       const amount = checkShift.TongTienTre !== null ? parseFloat(checkShift.TongTienTre) : parseFloat(checkShift.TienNhanVienNhan);
-      totalPayout += amount;
+      if (!(amount > 0)) continue;
 
       // Đánh dấu đã thanh toán
       await checkShift.update({ DaThanhToan: true, TongTienTre: amount }, { transaction: tx });
-    }
 
-    if (totalPayout > 0) {
-      // 1. Cộng vào ví nhân viên
-      const newProvBalance = parseFloat(providerWallet.SoDu) + totalPayout;
-      await providerWallet.update({ SoDu: newProvBalance }, { transaction: tx });
+      // Cập nhật số dư trong bộ nhớ
+      currentProvBalance += amount;
+      currentSysBalance -= amount;
 
-      // 2. Trừ ví tạm giữ hệ thống
-      const newSysBalance = parseFloat(systemWallet.SoDu) - totalPayout;
-      await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
-
-      // 3. Ghi lịch sử ví
+      // Ghi lịch sử ví từng ca
       await LichSuViTien.create({
         MaViNguon: systemWallet.MaViTien,
         MaViDich: providerWallet.MaViTien,
-        MaCaLam: null,
+        MaCaLam: shift.MaCaLam,
         LoaiGiaoDich: 4, // 4: Trả lương nhân viên
-        SoTien: totalPayout,
-        SoDuSau: newProvBalance,
+        SoTien: amount,
+        SoDuSau: currentProvBalance,
         NgayTao: new Date(),
-        NoiDungGiaoDich: `Giải ngân tự động cho ${validShifts.length} ca làm việc đủ điều kiện (24h/72h).`
+        NoiDungGiaoDich: `Giải ngân ca làm việc #${shift.MaCaLam}.`
       }, { transaction: tx });
 
-      console.log(`[GIẢI NGÂN THEO YÊU CẦU] Đã giải ngân ${totalPayout} cho nhân viên #${providerId} ứng với ${validShifts.length} ca làm việc.`);
+      processedShifts++;
+    }
+
+    if (processedShifts > 0) {
+      // 1. Cập nhật ví nhân viên
+      await providerWallet.update({ SoDu: currentProvBalance }, { transaction: tx });
+
+      // 2. Cập nhật ví tạm giữ hệ thống
+      await systemWallet.update({ SoDu: currentSysBalance }, { transaction: tx });
+
+      console.log(`[GIẢI NGÂN THEO YÊU CẦU] Đã giải ngân cho nhân viên #${providerId} ứng với ${processedShifts} ca làm việc.`);
     }
 
     await tx.commit();

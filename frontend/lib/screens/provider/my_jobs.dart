@@ -32,6 +32,22 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
     super.dispose();
   }
 
+  Future<void> _handleStartJob(int caLamId) async {
+    final response = await _viewModel.startJob(caLamId);
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bắt đầu công việc thành công! Vui lòng hoàn thành tốt công việc của mình.')),
+      );
+      _viewModel.loadMyJobs();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? 'Có lỗi xảy ra')),
+      );
+    }
+  }
+
   Future<void> _handleCompleteJob(int caLamId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -888,17 +904,30 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                               child: const Text('Đổi Lịch', style: TextStyle(fontSize: 11)),
                             ),
                             const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: () { Navigator.pop(context); _handleCompleteJob(caLamId); },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                minimumSize: Size.zero,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            if (job['ThoiGianBatDauThucTe'] == null)
+                              ElevatedButton(
+                                onPressed: () { Navigator.pop(context); _handleStartJob(caLamId); },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                child: const Text('BẮT ĐẦU', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                              )
+                            else
+                              ElevatedButton(
+                                onPressed: () { Navigator.pop(context); _handleCompleteJob(caLamId); },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                child: const Text('HOÀN THÀNH', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                               ),
-                              child: const Text('HOÀN THÀNH', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                            ),
                           ],
                         ),
                       ],
@@ -1071,16 +1100,28 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                           child: const Text('Đổi Lịch'),
                         ),
                         const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () => _handleCompleteJob(id),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        if (job['ThoiGianBatDauThucTe'] == null)
+                          ElevatedButton(
+                            onPressed: () => _handleStartJob(id),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('BẮT ĐẦU', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          )
+                        else
+                          ElevatedButton(
+                            onPressed: () => _handleCompleteJob(id),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('HOÀN THÀNH', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           ),
-                          child: const Text('HOÀN THÀNH', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        ),
                       ],
                     ),
                 ],
@@ -1382,19 +1423,34 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () { Navigator.pop(context); _handleCompleteJob(id); },
-                        icon: const Icon(Icons.check_circle_outline, size: 18),
-                        label: const Text('HOÀN THÀNH'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    if (job['ThoiGianBatDauThucTe'] == null)
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () { Navigator.pop(context); _handleStartJob(id); },
+                          icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                          label: const Text('BẮT ĐẦU'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () { Navigator.pop(context); _handleCompleteJob(id); },
+                          icon: const Icon(Icons.check_circle_outline, size: 18),
+                          label: const Text('HOÀN THÀNH'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ],
