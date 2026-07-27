@@ -481,7 +481,7 @@ Future<void> _selectTime(BuildContext context) async {
                               children: _viewModel.weekdays.keys.map((day) {
                                 final isSelected = _viewModel.weekdays[day]!;
                                 return FilterChip(
-                                  label: Text('T$day'),
+                                  label: Text(day == 'CN' ? 'CN' : 'T$day'),
                                   selected: isSelected,
                                   selectedColor: orangeColor.withOpacity(0.15),
                                   checkmarkColor: orangeColor,
