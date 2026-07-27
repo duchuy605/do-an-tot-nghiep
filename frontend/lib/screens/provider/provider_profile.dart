@@ -363,18 +363,22 @@ class ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Active status switch
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
-                              ),
-                              child: SwitchListTile(
-                                title: const Text('Sẵn Sàng Nhận Việc', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: darkColor)),
-                                subtitle: const Text('Bật để hiển thị tên nhận ca dọn', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                                activeColor: orangeColor,
-                                value: _viewModel.activeStatus,
-                                onChanged: _toggleActiveStatus,
+                            Material(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
+                                ),
+                                child: SwitchListTile(
+                                  title: const Text('Sẵn Sàng Nhận Việc', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: darkColor)),
+                                  subtitle: const Text('Bật để hiển thị tên nhận ca dọn', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                  activeColor: orangeColor,
+                                  value: _viewModel.activeStatus,
+                                  onChanged: _toggleActiveStatus,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 24),
@@ -470,28 +474,32 @@ class ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             const SizedBox(height: 20),
 
                             // Change password list item
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
-                              ),
-                              child: Column(
-                                children: [
-                                  ListTile(
-                                    leading: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(color: orangeColor.withOpacity(0.1), shape: BoxShape.circle),
-                                      child: const Icon(Icons.lock_outline_rounded, color: orangeColor, size: 20),
+                            Material(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
+                                ),
+                                child: Column(
+                                  children: [
+                                    ListTile(
+                                      leading: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(color: orangeColor.withOpacity(0.1), shape: BoxShape.circle),
+                                        child: const Icon(Icons.lock_outline_rounded, color: orangeColor, size: 20),
+                                      ),
+                                      title: const Text(
+                                        'Thay đổi mật khẩu',
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: darkColor, fontSize: 14),
+                                      ),
+                                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                                      onTap: _showChangePasswordDialog,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                     ),
-                                    title: const Text(
-                                      'Thay đổi mật khẩu',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: darkColor, fontSize: 14),
-                                    ),
-                                    trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
-                                    onTap: _showChangePasswordDialog,
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                             const SizedBox(height: 40),

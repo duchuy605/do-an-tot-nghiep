@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../viewmodels/provider/my_jobs_viewmodel.dart';
+import '../../widgets/provider_calendar_dialog.dart';
 
 class MyJobsScreen extends StatefulWidget {
   const MyJobsScreen({super.key});
@@ -170,11 +171,66 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
     return '$h:$m:00';
   }
 
+  List<Map<String, dynamic>> _getMappedShifts(dynamic currentJob) {
+    List<Map<String, dynamic>> mappedShifts = [];
+    for (var otherJob in _viewModel.myJobs) {
+      if (otherJob['MaCaLam'] == currentJob['MaCaLam']) continue;
+      int status = otherJob['TrangThaiDonHang'] ?? 1;
+      if (status == 0 || status == 1 || status == 3) {
+        String dateStr = otherJob['NgayLamViec'] ?? '';
+        if (dateStr.contains('T')) dateStr = dateStr.split('T')[0];
+        
+        mappedShifts.add({
+          'date': dateStr,
+          'start': otherJob['GioBatDau']?.toString().substring(0, 5) ?? '00:00',
+          'end': otherJob['GioKetThuc']?.toString().substring(0, 5) ?? '00:00',
+        });
+      }
+    }
+    return mappedShifts;
+  }
+
+
   Future<void> _handleRescheduleJob(dynamic job) async {
-    DateTime selectedDate = DateTime.tryParse(job['NgayLamViec'] ?? '') ?? DateTime.now();
-    TimeOfDay startTime = _parseTimeOfDay(job['GioBatDau'] ?? '08:00:00');
-    TimeOfDay endTime = _parseTimeOfDay(job['GioKetThuc'] ?? '10:00:00');
+    DateTime oldDate = DateTime.tryParse(job['NgayLamViec'] ?? '') ?? DateTime.now();
+    TimeOfDay oldStartTime = _parseTimeOfDay(job['GioBatDau'] ?? '08:00:00');
+    TimeOfDay oldEndTime = _parseTimeOfDay(job['GioKetThuc'] ?? '10:00:00');
+    
+    DateTime selectedDate = oldDate;
+    TimeOfDay startTime = oldStartTime;
     final reasonController = TextEditingController();
+
+    int durationMins = (oldEndTime.hour - oldStartTime.hour) * 60 + (oldEndTime.minute - oldStartTime.minute);
+    bool hasConflict = false;
+
+    void _checkConflict() {
+      hasConflict = false;
+      int newStartMins = startTime.hour * 60 + startTime.minute;
+      int newEndMins = newStartMins + durationMins;
+      String newDateStr = _formatDate(selectedDate);
+
+      for (var otherJob in _viewModel.myJobs) {
+        if (otherJob['MaCaLam'] == job['MaCaLam']) continue;
+        int status = otherJob['TrangThaiDonHang'] ?? 1;
+        if (status == 0 || status == 1 || status == 3) { // Chờ xác nhận, Đã nhận, Đang làm
+          String otherDateStr = otherJob['NgayLamViec'] ?? '';
+          if (otherDateStr.startsWith(newDateStr)) {
+             TimeOfDay otherStart = _parseTimeOfDay(otherJob['GioBatDau'] ?? '00:00:00');
+             TimeOfDay otherEnd = _parseTimeOfDay(otherJob['GioKetThuc'] ?? '00:00:00');
+             int otherStartMins = otherStart.hour * 60 + otherStart.minute;
+             int otherEndMins = otherEnd.hour * 60 + otherEnd.minute;
+             
+             if (newStartMins < otherEndMins && otherStartMins < newEndMins) {
+               hasConflict = true;
+               break;
+             }
+          }
+        }
+      }
+    }
+    
+    // Kiểm tra lần đầu
+    _checkConflict();
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -185,31 +241,81 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_month_outlined),
-                title: const Text('Ngày làm mới'),
-                subtitle: Text(_formatDate(selectedDate)),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 180)),
-                  );
-                  if (picked != null) setDialogState(() => selectedDate = picked);
-                },
+              // Lịch cũ
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history, size: 18, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Lịch cũ: ${_formatDate(oldDate)} lúc ${oldStartTime.format(context)} - ${oldEndTime.format(context)}', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500))),
+                  ],
+                ),
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.schedule_rounded),
-                title: const Text('Giờ bắt đầu'),
-                subtitle: Text(startTime.format(context)),
-                onTap: () async {
-                  final picked = await showTimePicker(context: context, initialTime: startTime);
-                  if (picked != null) setDialogState(() => startTime = picked);
-                },
+              // Khung chọn lịch mới
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: hasConflict ? Colors.red : Colors.transparent, width: 1.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_month_outlined),
+                      title: const Text('Ngày làm mới'),
+                      subtitle: Text(_formatDate(selectedDate)),
+                      onTap: () async {
+                        final picked = await showDialog<DateTime>(
+                          context: context,
+                          builder: (context) => ProviderCalendarDialog(
+                            initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 180)),
+                            providerShifts: _getMappedShifts(job),
+                            plannedStartTime: startTime,
+                            plannedDurationHours: durationMins / 60.0,
+                          ),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            selectedDate = picked;
+                            _checkConflict();
+                          });
+                        }
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.schedule_rounded),
+                      title: const Text('Giờ bắt đầu'),
+                      subtitle: Text(startTime.format(context)),
+                      onTap: () async {
+                        final picked = await showTimePicker(context: context, initialTime: startTime);
+                        if (picked != null) {
+                          setDialogState(() {
+                            startTime = picked;
+                            _checkConflict();
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
+              if (hasConflict)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red),
+                      const SizedBox(width: 4),
+                      const Expanded(child: Text('Lịch này trùng với một ca làm việc khác của bạn.', style: TextStyle(color: Colors.red, fontSize: 12))),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -775,16 +881,17 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            OutlinedButton(
-                              onPressed: () { Navigator.pop(context); _handleCancelJob(caLamId); },
+                            OutlinedButton.icon(
+                              onPressed: () { Navigator.pop(context); _handleRescheduleJob(job); },
+                              icon: const Icon(Icons.schedule, size: 14),
+                              label: const Text('Đổi ca', style: TextStyle(fontSize: 11)),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red),
+                                foregroundColor: Colors.blue,
+                                side: const BorderSide(color: Colors.blue),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 minimumSize: Size.zero,
                               ),
-                              child: const Text('Từ Chối', style: TextStyle(fontSize: 11)),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton(
@@ -959,15 +1066,16 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                   if (status == 1)
                     Row(
                       children: [
-                        OutlinedButton(
-                          onPressed: () => _handleCancelJob(id),
+                        OutlinedButton.icon(
+                          onPressed: () => _handleRescheduleJob(job),
+                          icon: const Icon(Icons.schedule, size: 16),
+                          label: const Text('Đổi ca'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
+                            foregroundColor: Colors.blue,
+                            side: const BorderSide(color: Colors.blue),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                           ),
-                          child: const Text('Từ Chối'),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
@@ -1275,38 +1383,21 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                   ],
                 ),
               ],
-              // Trạng thái 1: Đã nhận → hiện nút Từ chối + Hoàn thành
+              // Trạng thái 1: Đã nhận → hiện nút Hoàn thành (Đổi ca đã có ở trên)
               if (status == 1) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () { Navigator.pop(context); _handleCancelJob(id); },
-                        icon: const Icon(Icons.cancel_outlined, size: 18),
-                        label: const Text('Từ Chối'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () { Navigator.pop(context); _handleCompleteJob(id); },
+                    icon: const Icon(Icons.check_circle_outline, size: 18),
+                    label: const Text('HOÀN THÀNH'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () { Navigator.pop(context); _handleCompleteJob(id); },
-                        icon: const Icon(Icons.check_circle_outline, size: 18),
-                        label: const Text('HOÀN THÀNH'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ],

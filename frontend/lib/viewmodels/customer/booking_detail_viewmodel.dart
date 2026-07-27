@@ -90,6 +90,7 @@ class BookingDetailViewModel extends ChangeNotifier {
     required String ngayLamViec,
     required String gioBatDau,
     String lyDo = '',
+
   }) async {
     _isLoading = true;
     notifyListeners();

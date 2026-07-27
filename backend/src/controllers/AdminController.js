@@ -529,6 +529,13 @@ class AdminController {
           const systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
 
           if (customerWallet && systemWallet) {
+            // Deduct penalty from provider's pending payout if not yet paid
+            if (caLam.TongTienTre !== null && !caLam.DaThanhToan) {
+              const currentPending = parseFloat(caLam.TongTienTre);
+              const remainingPending = Math.max(0, currentPending - hoanTienAmount);
+              await caLam.update({ TongTienTre: remainingPending }, { transaction: tx });
+            }
+
             // Trừ tiền bồi thường từ ví hệ thống
             const newSysBalance = parseFloat(systemWallet.SoDu) - hoanTienAmount;
             await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
@@ -555,6 +562,17 @@ class AdminController {
       }
 
       await tx.commit();
+
+      // Tự động đối soát và giải ngân cho nhân viên ngay khi khiếu nại được giải quyết xong (nếu đủ điều kiện)
+      const caLam = await CaLamViec.findByPk(complaint.MaCaLam);
+      if (caLam && caLam.MaNhanVien) {
+        try {
+          const { checkAndExecutePayoutsForProvider } = require('../utils/payout_helper');
+          await checkAndExecutePayoutsForProvider(caLam.MaNhanVien);
+        } catch (payoutErr) {
+          console.error('[RESOLVE COMPLAINT PAYOUT ERROR]:', payoutErr.message);
+        }
+      }
 
       const updatedComplaint = await KhieuNai.findByPk(complaintId, {
         include: [
@@ -586,6 +604,144 @@ class AdminController {
       return success(res, types, 'Lấy danh sách hình thức xử lý thành công');
     } catch (err) {
       next(err);
+    }
+  }
+
+  // ============================================================
+  // Tự động thanh toán lương (Gọi qua Cron Job)
+  // ============================================================
+  async executeAutomaticPayouts() {
+    let tx;
+    try {
+      const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000);
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      // Lấy tất cả các ca làm việc hoàn thành, chưa thanh toán
+      const pendingShifts = await CaLamViec.findAll({
+        where: {
+          TrangThaiDonHang: 2, // Hoàn thành
+          DaThanhToan: false
+        },
+        include: [{
+          model: KhieuNai,
+          as: 'KhieuNais',
+          required: false
+        }]
+      });
+
+      // Lọc các ca làm đủ điều kiện 24h / 72h
+      const validShifts = pendingShifts.filter(shift => {
+        const hasComplaints = shift.KhieuNais && shift.KhieuNais.length > 0;
+        
+        // Tính số tiền: nếu TongTienTre null/0, dùng TienNhanVienNhan
+        const amount = shift.TongTienTre !== null ? parseFloat(shift.TongTienTre) : parseFloat(shift.TienNhanVienNhan);
+        if (!(amount > 0)) return false;
+
+        // Tính thời gian: NgayHoanThanh -> NgayCapNhat -> NgayLamViec
+        let finishDate;
+        if (shift.NgayHoanThanh) {
+          finishDate = new Date(shift.NgayHoanThanh);
+        } else if (shift.NgayCapNhat) {
+          finishDate = new Date(shift.NgayCapNhat);
+        } else {
+          finishDate = new Date(shift.NgayLamViec + 'T' + shift.GioKetThuc);
+        }
+
+        if (hasComplaints) {
+          // Nếu có khiếu nại, phải giữ đủ 72 giờ
+          if (finishDate > seventyTwoHoursAgo) return false;
+          
+          // Và tất cả khiếu nại phải được giải quyết (TrangThaiXuLy = 2) mới được nhận tiền còn lại
+          const allResolved = shift.KhieuNais.every(k => k.TrangThaiXuLy === 2);
+          if (!allResolved) return false;
+        } else {
+          // Nếu không có khiếu nại, giữ đủ 24 giờ
+          if (finishDate > twentyFourHoursAgo) return false;
+        }
+
+        return true;
+      });
+
+      if (validShifts.length === 0) {
+        return { success: true, data: null, message: 'Không có ca làm việc nào đủ điều kiện thanh toán.' };
+      }
+
+      // Group by MaNhanVien
+      const payoutsByProvider = {};
+      for (const shift of validShifts) {
+        if (!shift.MaNhanVien) continue;
+        const providerId = shift.MaNhanVien;
+        if (!payoutsByProvider[providerId]) {
+          payoutsByProvider[providerId] = {
+            totalAmount: 0,
+            shifts: []
+          };
+        }
+        const shiftAmount = shift.TongTienTre !== null ? parseFloat(shift.TongTienTre) : parseFloat(shift.TienNhanVienNhan);
+        payoutsByProvider[providerId].totalAmount += shiftAmount;
+        payoutsByProvider[providerId].shifts.push({ shift, amount: shiftAmount });
+      }
+
+      tx = await sequelize.transaction();
+
+      const systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
+      if (!systemWallet) {
+        throw new Error('Không tìm thấy ví hệ thống để giải ngân.');
+      }
+
+      let totalPayoutAll = 0;
+      let payoutCount = 0;
+
+      for (const providerId of Object.keys(payoutsByProvider)) {
+        const payout = payoutsByProvider[providerId];
+        const providerWallet = await ViTien.findOne({ where: { MaNguoiDung: providerId } });
+        
+        if (providerWallet) {
+          totalPayoutAll += payout.totalAmount;
+          
+          // 1. Cộng tiền vào ví nhân viên
+          const newProvBalance = parseFloat(providerWallet.SoDu) + payout.totalAmount;
+          await providerWallet.update({ SoDu: newProvBalance }, { transaction: tx });
+
+          // 2. Ghi một giao dịch tổng cho nhân viên
+          await LichSuViTien.create({
+            MaViNguon: systemWallet.MaViTien,
+            MaViDich: providerWallet.MaViTien,
+            MaCaLam: null, // Multiple shifts, so leave null
+            LoaiGiaoDich: 4, // 4: Trả lương nhân viên
+            SoTien: payout.totalAmount,
+            SoDuSau: newProvBalance,
+            NgayTao: new Date(),
+            NoiDungGiaoDich: `Thanh toán lương tuần cho ${payout.shifts.length} ca làm việc.`
+          }, { transaction: tx });
+
+          // 3. Mark all shifts as paid
+          for (const item of payout.shifts) {
+            await item.shift.update({ DaThanhToan: true, TongTienTre: item.amount }, { transaction: tx });
+          }
+          
+          payoutCount++;
+        }
+      }
+
+      // 4. Trừ tổng tiền khỏi ví hệ thống
+      const newSysBalance = parseFloat(systemWallet.SoDu) - totalPayoutAll;
+      await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
+
+      await tx.commit();
+
+      return {
+        success: true,
+        data: {
+          providersPaid: payoutCount,
+          totalAmount: totalPayoutAll,
+          shiftsProcessed: validShifts.length
+        },
+        message: 'Thanh toán tự động thành công.'
+      };
+    } catch (err) {
+      if (tx) await tx.rollback();
+      throw err;
     }
   }
 }

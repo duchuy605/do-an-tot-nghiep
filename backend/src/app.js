@@ -47,6 +47,8 @@ const server = http.createServer(app);
 // Khởi tạo kết nối Socket.IO
 oCamManager.initialize(server);
 
+// Tự động kích hoạt giải ngân dựa trên sự kiện (không dùng node-cron chạy ngầm)
+
 // Kết nối cơ sở dữ liệu & khởi động server
 const PORT = process.env.PORT || 3000;
 

@@ -79,7 +79,26 @@ CaLamViec.init({
     allowNull: false,
     defaultValue: 0, // 0: Cho xac nhan, 1: Da nhan, 2: Hoan thanh, 3: Da huy
     comment: '0: Cho xac nhan, 1: Da nhan, 2: Hoan thanh, 3: Da huy'
+  },
+
+  TongTienTre: {
+    type: DataTypes.DECIMAL(18, 0),
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Tiền lương đang chờ thanh toán (80% giữ lại cho nhân viên)'
+  },
+  DaThanhToan: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'true = đã chuyển tiền vào ví nhân viên'
+  },
+  NgayHoanThanh: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Thời điểm nhân viên bấm Hoàn Thành để tính 24h'
   }
+
 }, {
   sequelize,
   modelName: 'CaLamViec',

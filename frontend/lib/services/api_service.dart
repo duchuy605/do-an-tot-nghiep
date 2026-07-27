@@ -210,6 +210,16 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
+  /// Lấy danh sách ngày bận của nhân viên (đã có lịch)
+  /// GET /api/providers/:id/busy-dates
+  static Future<Map<String, dynamic>> getProviderBusyDates(int providerId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/providers/$providerId/busy-dates'),
+      headers: await _headers(),
+    );
+    return jsonDecode(response.body);
+  }
+
   /// Tạo đơn đặt lịch mới
   /// POST /api/bookings
   /// Bảng: DonDatLich, CaLamViec, DatDichVu

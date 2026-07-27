@@ -11,7 +11,7 @@ class BookingCheckoutScreen extends StatefulWidget {
   final Map<String, dynamic> bookingData;
   final ServiceModel mainService;
   final List<ServiceModel> additionalServices; // dịch vụ bổ sung đã chọn
-  final int durationHours;
+  final double durationHours;
   final int bookingType; // 1: Một lần, 2: Định kỳ
 
   const BookingCheckoutScreen({
@@ -442,7 +442,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('${service['serviceName']} (${service['hours']} tiếng)', style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                              Text('${service['serviceName']} (${service['hours']} Giờ)', style: const TextStyle(color: Colors.grey, fontSize: 14)),
                               Text(_formatCurrency((service['price'] as num).toDouble()), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: darkColor)),
                             ],
                           ),
@@ -460,7 +460,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                           children: [
                             const Divider(),
                             const SizedBox(height: 4),
-                            _buildPriceRow('Tổng / 1 ca (${totalCaHours.toStringAsFixed(0)} tiếng)', totalCaPrice),
+                            _buildPriceRow('Tổng / 1 ca (${totalCaHours.toStringAsFixed(1)} Giờ)', totalCaPrice),
                           ],
                         );
                       }),

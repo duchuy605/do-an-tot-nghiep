@@ -22,6 +22,7 @@ const { success, error } = require('../utils/phan_hoi');
 const { createBookingSchema } = require('../validators/booking.validator');
 const { createReviewSchema, createComplaintSchema, rescheduleShiftSchema } = require('../validators/others.validator');
 const oCamManager = require('../sockets/o_cam_manager');
+const { checkAndExecutePayoutsForProvider } = require('../utils/payout_helper');
 
 class CustomerController {
   constructor() {
@@ -41,6 +42,7 @@ class CustomerController {
     this.rescheduleShift = this.rescheduleShift.bind(this);
     this.respondRescheduleShift = this.respondRescheduleShift.bind(this);
     this.changeProvider = this.changeProvider.bind(this);
+    this.getProviderBusyDates = this.getProviderBusyDates.bind(this);
   }
 
   // Hàm tiện ích hỗ trợ tính giá chi tiết buổi làm
@@ -289,6 +291,35 @@ class CustomerController {
         return error(res, 'Không tìm thấy thông tin nhân viên này', 404);
       }
       return success(res, provider, 'Lấy chi tiết nhân viên thành công');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getProviderBusyDates(req, res, next) {
+    try {
+      const providerId = req.params.id;
+      const shifts = await CaLamViec.findAll({
+        where: {
+          MaNhanVien: providerId,
+          TrangThaiDonHang: { [Op.notIn]: [3] } // Không lấy ca đã hủy
+        },
+        attributes: ['NgayLamViec', 'GioBatDau', 'GioKetThuc'],
+        order: [['NgayLamViec', 'ASC']]
+      });
+
+      const busyDates = shifts.map(s => {
+        // Đảm bảo date dạng 'YYYY-MM-DD'
+        const d = s.NgayLamViec instanceof Date
+          ? s.NgayLamViec.toISOString().substring(0, 10)
+          : String(s.NgayLamViec).substring(0, 10);
+        // Đảm bảo time dạng 'HH:mm' (cắt bỏ giây nếu có)
+        const start = String(s.GioBatDau || '00:00').substring(0, 5);
+        const end   = String(s.GioKetThuc || '00:00').substring(0, 5);
+        return { date: d, start, end };
+      });
+
+      return success(res, busyDates, 'Lấy lịch bận của nhân viên thành công');
     } catch (err) {
       next(err);
     }
@@ -1064,6 +1095,12 @@ class CustomerController {
   async getWallet(req, res, next) {
     try {
       const customerId = req.user.MaNguoiDung;
+      
+      // Nếu là nhân viên, tự động đối soát và giải ngân các ca làm đủ điều kiện trước khi lấy ví
+      if (req.user.VaiTro === 2) {
+        await checkAndExecutePayoutsForProvider(customerId);
+      }
+
       const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
         return error(res, 'Không tìm thấy ví của người dùng', 404);
@@ -1077,6 +1114,12 @@ class CustomerController {
   async getWalletHistory(req, res, next) {
     try {
       const customerId = req.user.MaNguoiDung;
+
+      // Tương tự, nếu là nhân viên, đối soát trước khi lấy lịch sử giao dịch
+      if (req.user.VaiTro === 2) {
+        await checkAndExecutePayoutsForProvider(customerId);
+      }
+
       const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
         return error(res, 'Không tìm thấy ví của người dùng', 404);

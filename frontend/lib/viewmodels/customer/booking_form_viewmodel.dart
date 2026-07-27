@@ -8,7 +8,7 @@ class BookingFormViewModel extends ChangeNotifier {
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now();
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 30);
-  int _durationHours = 2;
+  double _durationHours = 2.0;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -19,6 +19,8 @@ class BookingFormViewModel extends ChangeNotifier {
   // Chọn nhân viên yêu thích
   List<Map<String, dynamic>> _providers = [];
   Map<String, dynamic>? _selectedProvider;
+  // Danh sách ca làm của nhân viên {date: YYYY-MM-DD, start: HH:mm, end: HH:mm}
+  List<Map<String, dynamic>> _providerBusyShifts = [];
 
   final Map<String, bool> _weekdays = {
     '2': false,
@@ -48,7 +50,7 @@ class BookingFormViewModel extends ChangeNotifier {
   DateTime get startDate => _startDate;
   DateTime get endDate => _endDate;
   TimeOfDay get startTime => _startTime;
-  int get durationHours => _durationHours;
+  double get durationHours => _durationHours;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   Map<String, bool> get weekdays => _weekdays;
@@ -63,6 +65,7 @@ class BookingFormViewModel extends ChangeNotifier {
   Map<String, dynamic>? get selectedProvider => _selectedProvider;
   double get temporaryTotalPrice => _temporaryTotalPrice;
   bool get isCalculatingPrice => _isCalculatingPrice;
+  List<Map<String, dynamic>> get providerBusyShifts => _providerBusyShifts;
 
   void setMainServiceId(int id) {
     _mainServiceId = id;
@@ -118,7 +121,7 @@ class BookingFormViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setDurationHours(int h) {
+  void setDurationHours(double h) {
     _durationHours = h;
     _triggerPreviewPrice();
     notifyListeners();
@@ -170,10 +173,30 @@ class BookingFormViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setSelectedProvider(Map<String, dynamic>? provider) {
+  Future<void> setSelectedProvider(Map<String, dynamic>? provider) async {
     _selectedProvider = provider;
+    _providerBusyShifts = [];
     _triggerPreviewPrice();
     notifyListeners();
+    
+    // Load ca làm của nhân viên được chọn
+    if (provider != null) {
+      final providerId = provider['MaNguoiDung'];
+      if (providerId != null) {
+        try {
+          final response = await ApiService.getProviderBusyDates(providerId as int);
+          if (response['success'] == true) {
+            final List data = response['data'] ?? [];
+            _providerBusyShifts = data.map<Map<String, dynamic>>((item) => {
+              'date': item['date'].toString().substring(0, 10),
+              'start': item['start'].toString().substring(0, 5), // HH:mm
+              'end': item['end'].toString().substring(0, 5),     // HH:mm
+            }).toList();
+          }
+        } catch (_) {}
+        notifyListeners();
+      }
+    }
   }
 
   void setLoading(bool val) {
@@ -192,7 +215,9 @@ class BookingFormViewModel extends ChangeNotifier {
   }
 
   Future<void> loadPackages(int defaultDuration) async {
-    _durationHours = defaultDuration;
+    if (defaultDuration > 0) {
+      _durationHours = defaultDuration.toDouble();
+    }
     _isLoading = true;
     notifyListeners();
 
@@ -278,11 +303,20 @@ class BookingFormViewModel extends ChangeNotifier {
     return '$hour:$minute:00';
   }
 
-  String _calculateEndTime(TimeOfDay start, int durationHours) {
-    int endHour = start.hour + durationHours;
-    int endMinute = start.minute;
+  String _calculateEndTime(TimeOfDay start, double durationHours) {
+    int hoursToAdd = durationHours.floor();
+    int minutesToAdd = ((durationHours - hoursToAdd) * 60).round();
+    
+    int endMinute = start.minute + minutesToAdd;
+    int endHour = start.hour + hoursToAdd;
+    
+    if (endMinute >= 60) {
+      endMinute -= 60;
+      endHour += 1;
+    }
+    
     if (endHour >= 24) {
-      endHour = endHour - 24;
+      endHour -= 24;
     }
     final String hour = endHour.toString().padLeft(2, '0');
     final String minute = endMinute.toString().padLeft(2, '0');

@@ -4,11 +4,16 @@ const { NguoiDung, HoSoNhanVien, CaLamViec, ViTien, LichSuViTien, DonDatLich, Li
 const { getDurationInHours } = require('../utils/tinh_gia');
 const { success, error } = require('../utils/phan_hoi');
 const oCamManager = require('../sockets/o_cam_manager');
+const { checkAndExecutePayoutsForProvider } = require('../utils/payout_helper');
 
 class ProviderController {
   async getProfile(req, res, next) {
     try {
       const providerId = req.user.MaNguoiDung;
+
+      // Tự động đối soát giải ngân khi tải thông tin cá nhân
+      await checkAndExecutePayoutsForProvider(providerId);
+
       const provider = await NguoiDung.findByPk(providerId, {
         attributes: { exclude: ['MatKhau'] },
         include: [{ model: HoSoNhanVien, as: 'HoSoNhanVien' }]
@@ -240,6 +245,7 @@ class ProviderController {
       });
 
       // Gửi thông báo cho khách hàng
+
       oCamManager.guiThongBaoNguoiDung(job.MaKhachHang, {
         tieuDe: 'Nhân viên từ chối ca làm việc',
         noiDung: `Nhân viên ${req.user.HoTenNguoiDung} đã từ chối ca làm việc ngày ${job.NgayLamViec}. Lý do: ${lyDoTuChoi.trim()}. Ca làm đang chờ nhân viên khác nhận.`,
@@ -290,59 +296,47 @@ class ProviderController {
 
       tx = await sequelize.transaction();
 
-      // 1. Cập nhật trạng thái ca làm việc → Hoàn thành (2)
+      // 1. Cập nhật trạng thái ca làm việc → Hoàn thành (2) và ghi nhận số tiền pending
+      const now = new Date();
       await job.update({
         TrangThaiDonHang: 2, // 2: Hoàn thành
         TienNhanVienNhan: tienNhanVien,
         TienHeThongNhan: tienSystem,
-        NgayCapNhat: new Date()
+        TongTienTre: tienNhanVien,
+        DaThanhToan: false,
+        NgayCapNhat: now,
+        NgayHoanThanh: now
       }, { transaction: tx });
 
-      // 2. Giải ngân tiền từ ví Tạm giữ (Escrow, LoaiVi=3)
+      // 2. Chuyển tiền hoa hồng (20%) cho Admin, giữ tiền lương (80%) trong ví Tạm giữ
       const systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
-      const providerWallet = await ViTien.findOne({ where: { MaNguoiDung: providerId } });
+      const adminUser = await NguoiDung.findOne({ where: { VaiTro: 3 } });
+      
+      if (systemWallet && adminUser) {
+        const adminWallet = await ViTien.findOne({ where: { MaNguoiDung: adminUser.MaNguoiDung } });
+        if (adminWallet) {
+          // Trừ 20% hoa hồng khỏi ví Escrow
+          const newSysBalance = parseFloat(systemWallet.SoDu) - tienSystem;
+          await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
 
-      if (systemWallet && providerWallet) {
-        // 2a. Trừ toàn bộ tiền ca làm (100%) khỏi ví Escrow
-        const newSysBalance = parseFloat(systemWallet.SoDu) - tongTien;
-        await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
+          // Cộng 20% hoa hồng vào ví Admin
+          const newAdminBalance = parseFloat(adminWallet.SoDu) + tienSystem;
+          await adminWallet.update({ SoDu: newAdminBalance }, { transaction: tx });
 
-        // 2b. Cộng 80% lương vào ví nhân viên dọn dẹp
-        const newProvBalance = parseFloat(providerWallet.SoDu) + tienNhanVien;
-        await providerWallet.update({ SoDu: newProvBalance }, { transaction: tx });
-
-        // Ghi lịch sử giao dịch lương nhân viên
-        await LichSuViTien.create({
-          MaViNguon: systemWallet.MaViTien,
-          MaViDich: providerWallet.MaViTien,
-          MaCaLam: caLamId,
-          LoaiGiaoDich: 4, // 4: Trả lương nhân viên
-          SoTien: tienNhanVien,
-          SoDuSau: newProvBalance,
-          NgayTao: new Date()
-        }, { transaction: tx });
-
-        // 2c. Cộng 20% hoa hồng vào ví Admin
-        const adminUser = await NguoiDung.findOne({ where: { VaiTro: 3 } });
-        if (adminUser) {
-          const adminWallet = await ViTien.findOne({ where: { MaNguoiDung: adminUser.MaNguoiDung } });
-          if (adminWallet) {
-            const newAdminBalance = parseFloat(adminWallet.SoDu) + tienSystem;
-            await adminWallet.update({ SoDu: newAdminBalance }, { transaction: tx });
-
-            // Ghi lịch sử giao dịch hoa hồng hệ thống
-            await LichSuViTien.create({
-              MaViNguon: systemWallet.MaViTien,
-              MaViDich: adminWallet.MaViTien,
-              MaCaLam: caLamId,
-              LoaiGiaoDich: 5, // 5: Hoa hồng hệ thống
-              SoTien: tienSystem,
-              SoDuSau: newAdminBalance,
-              NgayTao: new Date()
-            }, { transaction: tx });
-          }
+          // Ghi lịch sử giao dịch hoa hồng hệ thống
+          await LichSuViTien.create({
+            MaViNguon: systemWallet.MaViTien,
+            MaViDich: adminWallet.MaViTien,
+            MaCaLam: caLamId,
+            LoaiGiaoDich: 5, // 5: Hoa hồng hệ thống
+            SoTien: tienSystem,
+            SoDuSau: newAdminBalance,
+            NgayTao: new Date()
+          }, { transaction: tx });
         }
       }
+
+      // Lưu ý: Không cộng tiền vào ví nhân viên lúc này (tiền nhân viên sẽ được thanh toán vào cuối tuần qua cron/admin)
 
       // 3. Cập nhật tích lũy hồ sơ nhân viên (số giờ + số đơn hoàn thành)
       const hoso = await HoSoNhanVien.findOne({ where: { MaNhanVien: providerId } });

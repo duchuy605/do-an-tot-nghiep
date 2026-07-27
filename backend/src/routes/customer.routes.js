@@ -9,6 +9,7 @@ router.get('/services', customerController.getServices);
 router.get('/services/:id', customerController.getServiceDetail);
 router.get('/providers', customerController.getProviders);
 router.get('/providers/:id', customerController.getProviderDetail);
+router.get('/providers/:id/busy-dates', customerController.getProviderBusyDates);
 router.get('/packages', customerController.getPackages);
 
 // Các API cần xác thực (Customer role only)

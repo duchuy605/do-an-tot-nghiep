@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../viewmodels/customer/booking_form_viewmodel.dart';
 import '../../models/service_model.dart';
 import 'booking_checkout.dart';
+import '../../widgets/provider_calendar_dialog.dart';
 
 class BookingFormScreen extends StatefulWidget {
   final ServiceModel service;
@@ -43,11 +44,18 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
-    final DateTime? picked = await showDatePicker(
+    final DateTime? picked = await showDialog<DateTime>(
       context: context,
-      initialDate: isStart ? _viewModel.startDate : _viewModel.endDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 90)),
+      builder: (context) => ProviderCalendarDialog(
+        initialDate: isStart ? _viewModel.startDate : _viewModel.endDate,
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 90)),
+        // Truyền danh sách ca làm đầy đủ {date, start, end}
+        providerShifts: _viewModel.providerBusyShifts,
+        // Giờ bắt đầu và số giờ dự kiến đặt của khách
+        plannedStartTime: _viewModel.startTime,
+        plannedDurationHours: _viewModel.durationHours,
+      ),
     );
     if (picked != null) {
       if (isStart) {
@@ -178,6 +186,14 @@ Future<void> _selectTime(BuildContext context) async {
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,###', 'vi_VN');
     return '${formatter.format(amount)} đ';
+  }
+
+  String _formatDuration(double hours) {
+    final int h = hours.floor();
+    final int m = ((hours - h) * 60).round();
+    if (h == 0) return '$m phút';
+    if (m == 0) return '$h giờ';
+    return '$h giờ $m phút';
   }
 
   // Hiển thị bottom sheet chi tiết nhân viên
@@ -370,13 +386,13 @@ Future<void> _selectTime(BuildContext context) async {
                           ListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text('Số giờ dọn dẹp mỗi buổi', style: TextStyle(fontWeight: FontWeight.bold, color: darkColor)),
-                            subtitle: Text('${_viewModel.durationHours} giờ làm việc'),
-                            trailing: DropdownButton<int>(
+                            subtitle: Text(_formatDuration(_viewModel.durationHours)),
+                            trailing: DropdownButton<double>(
                               value: _viewModel.durationHours,
-                              items: [1,2, 3, 4, 5, 6, 8]
-                                  .map((h) => DropdownMenuItem(
+                              items: List.generate(8, (index) => (index + 1) * 0.5)
+                                  .map((h) => DropdownMenuItem<double>(
                                         value: h,
-                                        child: Text('$h giờ'),
+                                        child: Text(_formatDuration(h)),
                                       ))
                                   .toList(),
                               onChanged: (val) {
@@ -788,3 +804,9 @@ Future<void> _selectTime(BuildContext context) async {
     );
   }
 }
+
+// ============================================================
+// Widget lịch tùy chỉnh hiển thị ngày bận của nhân viên (vòng đỏ)
+// Chỉ đánh dấu đỏ khi giờ đặt của khách TRÙNG khung giờ ca làm của nhân viên
+// ============================================================
+
