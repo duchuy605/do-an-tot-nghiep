@@ -7,7 +7,6 @@ async function seedHinhThucXuLy() {
 
     const existing = await HinhThucXuLy.count();
     if (existing > 0) {
-      console.log(`Already has ${existing} resolution types. Skipping seed.`);
       const all = await HinhThucXuLy.findAll();
       all.forEach(t => console.log(`  ${t.MaHinhThucXuLy}: ${t.TenHinhThuc}`));
       process.exit(0);

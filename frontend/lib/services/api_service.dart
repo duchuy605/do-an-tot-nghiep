@@ -562,6 +562,26 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
+  /// Lấy lịch sử hoa hồng hệ thống
+  /// GET /api/admin/system-earnings
+  static Future<Map<String, dynamic>> getSystemEarningsHistory() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/system-earnings'),
+      headers: await _headers(),
+    );
+    return jsonDecode(response.body);
+  }
+
+  /// Lấy lịch sử doanh thu gộp (Gross Revenue)
+  /// GET /api/admin/gross-revenue
+  static Future<Map<String, dynamic>> getGrossRevenueHistory() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/gross-revenue'),
+      headers: await _headers(),
+    );
+    return jsonDecode(response.body);
+  }
+
   /// Lấy danh sách tất cả người dùng
   /// GET /api/admin/users
   /// Bảng: NguoiDung
@@ -569,6 +589,14 @@ class ApiService {
   static Future<Map<String, dynamic>> getUsers() async {
     final response = await http.get(
       Uri.parse('$baseUrl/admin/users'),
+      headers: await _headers(),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> getUserStats(int id) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/users/$id/stats'),
       headers: await _headers(),
     );
     return jsonDecode(response.body);

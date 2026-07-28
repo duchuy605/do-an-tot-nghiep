@@ -1459,6 +1459,22 @@ for (final job in _viewModel.myJobs) {
     }
   }
 }
+
+activeJobs.sort((a, b) {
+  final dateA = a['NgayLamViec'] ?? '';
+  final dateB = b['NgayLamViec'] ?? '';
+  int dateCmp = dateA.compareTo(dateB);
+  if (dateCmp != 0) return dateCmp;
+  return (a['GioBatDau'] ?? '').compareTo(b['GioBatDau'] ?? '');
+});
+
+historyJobs.sort((a, b) {
+  final dateA = a['NgayLamViec'] ?? '';
+  final dateB = b['NgayLamViec'] ?? '';
+  int dateCmp = dateB.compareTo(dateA);
+  if (dateCmp != 0) return dateCmp;
+  return (b['GioBatDau'] ?? '').compareTo(a['GioBatDau'] ?? '');
+});
           return TabBarView(
             controller: _tabController,
             children: [
