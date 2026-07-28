@@ -211,31 +211,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildCashFlowStats(Map<String, dynamic>? cashFlowStats) {
-    if (cashFlowStats == null) return const SizedBox.shrink();
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Chi Tiết Luồng Tiền (Cash Flow)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E1E24))),
-            const SizedBox(height: 12),
-            _buildListStatRow('Khách nạp tiền', _formatVND(double.tryParse(cashFlowStats['deposit']?.toString() ?? '0') ?? 0), Colors.teal, Icons.account_balance_wallet),
-            const Divider(),
-            _buildListStatRow('Khách thanh toán đơn', _formatVND(double.tryParse(cashFlowStats['payment']?.toString() ?? '0') ?? 0), Colors.blue, Icons.payments_rounded),
-            const Divider(),
-            _buildListStatRow('Hệ thống hoàn tiền', _formatVND(double.tryParse(cashFlowStats['refund']?.toString() ?? '0') ?? 0), Colors.orange, Icons.currency_exchange_rounded),
-            const Divider(),
-            _buildListStatRow('Chi trả lương nhân viên', _formatVND(double.tryParse(cashFlowStats['payout']?.toString() ?? '0') ?? 0), Colors.red, Icons.money_off_rounded),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     const orangeColor = Color(0xFFFF8225);
