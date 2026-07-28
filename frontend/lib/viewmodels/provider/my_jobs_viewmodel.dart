@@ -87,6 +87,22 @@ class MyJobsViewModel extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>> cancelJob(int caLamId, {String? lyDoHuy}) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.cancelJob(caLamId, lyDoHuy: lyDoHuy ?? '');
+      _isLoading = false;
+      notifyListeners();
+      return response;
+    } catch (_) {
+      _isLoading = false;
+      notifyListeners();
+      return {'success': false, 'message': 'Lỗi kết nối.'};
+    }
+  }
+
   /// Hàm xử lý logic nhận việc (acceptJob) cho các ca chờ xác nhận từ góc độ Frontend.
   /// 
   /// Trong quy trình của ứng dụng, thao tác nhận việc này cho phép nhân viên xác nhận làm một ca cụ thể.

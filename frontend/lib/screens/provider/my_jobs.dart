@@ -107,25 +107,30 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
   }
 
   Future<void> _handleCancelJob(int caLamId) async {
+    final job = _viewModel.myJobs.firstWhere((j) => j['MaCaLam'] == caLamId, orElse: () => null);
+    final isAccepted = job != null && job['TrangThaiDonHang'] == 1;
+
     final confirm = await showDialog<String?>(
       context: context,
       builder: (context) {
         final lyDoController = TextEditingController();
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Từ Chối / Hủy Nhận Ca', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(isAccepted ? 'Hủy Nhận Ca Làm Việc' : 'Từ Chối / Hủy Nhận Ca', style: const TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Bạn muốn từ chối ca làm này? Ca làm sẽ được đưa trở lại bảng chung để nhân viên khác nhận.'),
+              Text(isAccepted 
+                  ? 'Bạn muốn hủy ca làm đã nhận này? Việc hủy chỉ được chấp nhận trước giờ bắt đầu ít nhất 30 phút.' 
+                  : 'Bạn muốn từ chối ca làm này? Ca làm sẽ được đưa trở lại bảng chung để nhân viên khác nhận.'),
               const SizedBox(height: 16),
               TextField(
                 controller: lyDoController,
                 maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Lý do từ chối *',
-                  hintText: 'Nhập lý do từ chối...',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: isAccepted ? 'Lý do hủy lịch *' : 'Lý do từ chối *',
+                  hintText: isAccepted ? 'Nhập lý do hủy lịch...' : 'Nhập lý do từ chối...',
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
@@ -139,13 +144,13 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
               onPressed: () {
                 if (lyDoController.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Vui lòng nhập lý do từ chối'), backgroundColor: Colors.red),
+                    SnackBar(content: Text(isAccepted ? 'Vui lòng nhập lý do hủy' : 'Vui lòng nhập lý do từ chối'), backgroundColor: Colors.red),
                   );
                   return;
                 }
                 Navigator.pop(context, lyDoController.text.trim());
               },
-              child: const Text('Từ Chối', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              child: Text(isAccepted ? 'Hủy Lịch' : 'Từ Chối', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -154,17 +159,20 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
 
     if (confirm == null) return;
 
-    final response = await _viewModel.rejectJob(caLamId, lyDoHuy: confirm);
+    final response = isAccepted 
+        ? await _viewModel.cancelJob(caLamId, lyDoHuy: confirm)
+        : await _viewModel.rejectJob(caLamId, lyDoHuy: confirm);
+        
     if (!mounted) return;
 
     if (response['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã hủy nhận việc thành công.'), backgroundColor: Colors.green),
+        SnackBar(content: Text(isAccepted ? 'Đã hủy nhận lịch thành công!' : 'Đã từ chối ca làm việc thành công.'), backgroundColor: Colors.green),
       );
       _viewModel.loadMyJobs();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? 'Không thể từ chối ca làm này.')),
+        SnackBar(content: Text(response['message'] ?? 'Không thể thực hiện yêu cầu hủy/từ chối.')),
       );
     }
   }

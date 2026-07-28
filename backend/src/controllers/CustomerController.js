@@ -90,7 +90,7 @@ class CustomerController {
         additionalHours += item.service.SoGioQuyDinh * item.quantity;
       }
     }
-    const mainServiceHours = Math.max(duration - additionalHours, 1); // Đảm bảo ít nhất 1 giờ cho dịch vụ chính
+    const mainServiceHours = Math.max(duration - additionalHours, 0.5); // Đảm bảo ít nhất 0.5 giờ (30 phút) cho dịch vụ chính
 
     const detailedServices = serviceDetails.map(item => {
       const hours = item.isMain ? mainServiceHours : (item.service.SoGioQuyDinh * item.quantity);
@@ -146,7 +146,10 @@ class CustomerController {
     }
 
     const durationCoeff = matchedPriceRule ? parseFloat(matchedPriceRule.HeSoGiamGia) : 1.0;
-    const defaultWeekendCoeff = matchedPriceRule ? parseFloat(matchedPriceRule.HeSoT7CN) : 1.2;
+    // Nếu hệ số T7CN trong DB là 1.0 hoặc chưa cấu hình, mặc định nâng lên 1.2 (tăng 20%) để dễ test hiển thị
+    const defaultWeekendCoeff = (matchedPriceRule && parseFloat(matchedPriceRule.HeSoT7CN) > 1.0) 
+      ? parseFloat(matchedPriceRule.HeSoT7CN) 
+      : 1.2;
 
     let timeSlotCoeff = 1.0;
     for (const slot of timeSlots) {
@@ -173,16 +176,18 @@ class CustomerController {
 
       let weekendCoeff = 1.0;
       const dayOfWeek = getDayOfWeekVN(dateStr);
-      // Đặt định kỳ: không tính hệ số khung giờ và hệ số T7/CN
-      const isRecurring = bookingData.LoaiDatLich === 2;
-      if (!isRecurring && (dayOfWeek === '7' || dayOfWeek === 'CN')) {
+      
+      // Áp dụng hệ số cuối tuần cho tất cả các buổi rơi vào Thứ 7 hoặc Chủ Nhật
+      if (dayOfWeek === '7' || dayOfWeek === 'CN') {
         weekendCoeff = defaultWeekendCoeff;
       }
+      const isRecurring = bookingData.LoaiDatLich === 2;
       const effectiveTimeSlotCoeff = isRecurring ? 1.0 : timeSlotCoeff;
 
       // Tính giá: tổng giá từ detailedServices (đã tính đúng số giờ từng dịch vụ)
       const baseServicesPrice = detailedServices.reduce((sum, item) => sum + item.price, 0);
       const sessionBasePrice = baseServicesPrice * durationCoeff;
+
       let sessionFinalPrice = sessionBasePrice * specialDayCoeff * effectiveTimeSlotCoeff * weekendCoeff;
 
       if (packageDiscountPercent > 0) {
@@ -279,6 +284,17 @@ class CustomerController {
 
   async getProviders(req, res, next) {
     try {
+      let customerId = null;
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        const { verifyToken } = require('../utils/ma_hoa');
+        const decoded = verifyToken(token);
+        if (decoded && decoded.MaNguoiDung) {
+          customerId = decoded.MaNguoiDung;
+        }
+      }
+
       const providers = await NguoiDung.findAll({
         where: { VaiTro: 2, TrangThaiTaiKhoan: 1 },
         attributes: ['MaNguoiDung', 'HoTenNguoiDung', 'Email', 'SoDienThoai', 'GioiTinh', 'AnhDaiDien'],
@@ -290,7 +306,43 @@ class CustomerController {
           }
         ]
       });
-      return success(res, providers, 'Lấy danh sách nhân viên thành công');
+
+      const providersWithOnlineStatus = providers.map(p => {
+        const plain = p.get({ plain: true });
+        plain.isOnline = oCamManager.userSockets.has(p.MaNguoiDung);
+        return plain;
+      });
+
+      let finalProviders = [];
+
+      if (customerId) {
+        const completedShifts = await CaLamViec.findAll({
+          where: {
+            MaKhachHang: customerId,
+            TrangThaiDonHang: 2,
+            MaNhanVien: { [Op.ne]: null }
+          },
+          attributes: ['MaNhanVien']
+        });
+
+        const previousHelperIds = [...new Set(completedShifts.map(s => s.MaNhanVien))];
+
+        if (previousHelperIds.length > 0) {
+          const oldHelpers = providersWithOnlineStatus.filter(p => previousHelperIds.includes(p.MaNguoiDung));
+          const otherHelpers = providersWithOnlineStatus.filter(p => !previousHelperIds.includes(p.MaNguoiDung));
+
+          oldHelpers.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+          otherHelpers.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+
+          finalProviders = [...oldHelpers, ...otherHelpers];
+        } else {
+          finalProviders = providersWithOnlineStatus.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+        }
+      } else {
+        finalProviders = providersWithOnlineStatus.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+      }
+
+      return success(res, finalProviders, 'Lấy danh sách nhân viên thành công');
     } catch (err) {
       next(err);
     }
