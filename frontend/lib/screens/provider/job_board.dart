@@ -577,6 +577,17 @@ class JobBoardScreenState extends State<JobBoardScreen> {
             displayItems.add({'type': 'recurring', 'maDatLich': entry.key, 'jobs': entry.value});
           }
 
+          displayItems.sort((a, b) {
+            final dateA = a['type'] == 'recurring' ? (a['jobs'].isNotEmpty ? a['jobs'].first['NgayLamViec'] : '') : (a['job']['NgayLamViec'] ?? '');
+            final timeA = a['type'] == 'recurring' ? (a['jobs'].isNotEmpty ? a['jobs'].first['GioBatDau'] : '') : (a['job']['GioBatDau'] ?? '');
+            final dateB = b['type'] == 'recurring' ? (b['jobs'].isNotEmpty ? b['jobs'].first['NgayLamViec'] : '') : (b['job']['NgayLamViec'] ?? '');
+            final timeB = b['type'] == 'recurring' ? (b['jobs'].isNotEmpty ? b['jobs'].first['GioBatDau'] : '') : (b['job']['GioBatDau'] ?? '');
+
+            int dateCmp = (dateA ?? '').compareTo(dateB ?? '');
+            if (dateCmp != 0) return dateCmp;
+            return (timeA ?? '').compareTo(timeB ?? '');
+          });
+
           return RefreshIndicator(
             onRefresh: _viewModel.loadAvailableJobs,
             color: orangeColor,
