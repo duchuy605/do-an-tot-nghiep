@@ -105,7 +105,7 @@ class _GrossRevenueHistoryScreenState extends State<GrossRevenueHistoryScreen> {
                                   const Icon(Icons.person, size: 16, color: Colors.blue),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text('Khách: ${customer?['HoTenNguoiDung'] ?? 'Ẩn danh'}',
+                                    child: Text('Khách: ${customer?['HoTenNguoiDung'] }',
                                         style: const TextStyle(fontSize: 14)),
                                   ),
                                 ],
@@ -116,7 +116,7 @@ class _GrossRevenueHistoryScreenState extends State<GrossRevenueHistoryScreen> {
                                   const Icon(Icons.engineering, size: 16, color: Colors.purple),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text('NV: ${provider?['HoTenNguoiDung'] ?? 'N/A'}',
+                                    child: Text('NV: ${provider?['HoTenNguoiDung'] }',
                                         style: const TextStyle(fontSize: 14)),
                                   ),
                                 ],
