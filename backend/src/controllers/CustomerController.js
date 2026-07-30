@@ -1063,11 +1063,22 @@ class CustomerController {
       const oldProviderName = job.NhanVien ? job.NhanVien.HoTenNguoiDung : 'Nhân viên';
       const oldProviderId = job.MaNhanVien;
 
-      // Gỡ nhân viên, chuyển ca về trạng thái chờ nhận (1)
+      // Trích xuất và cập nhật danh sách nhân viên bị chặn
+      let blockedList = [];
+      if (job.LyDoHuy && job.LyDoHuy.startsWith('BLOCKED:')) {
+        blockedList = job.LyDoHuy.replace('BLOCKED:', '').split(',');
+      }
+      if (!blockedList.includes(oldProviderId.toString())) {
+        blockedList.push(oldProviderId.toString());
+      }
+      const newLyDoHuy = `BLOCKED:${blockedList.join(',')}`;
+
+      // Gỡ nhân viên, chuyển ca về trạng thái chờ nhận (1) và lưu block list
       await job.update({
         MaNhanVien: null,
         TrangThaiDonHang: 1,
-        NgayCapNhat: new Date()
+        NgayCapNhat: new Date(),
+        LyDoHuy: newLyDoHuy
       });
 
       // Gửi thông báo cho nhân viên cũ

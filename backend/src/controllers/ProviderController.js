@@ -97,7 +97,21 @@ class ProviderController {
         ],
         order: [['NgayLamViec', 'ASC'], ['GioBatDau', 'ASC']]
       });
-      return success(res, jobs, 'Lấy danh sách công việc thành công');
+
+      // Lọc bỏ những ca làm việc trống mà nhân viên này đã bị chặn (do khách hàng đổi nhân viên)
+      const filteredJobs = jobs.filter(job => {
+        if (job.TrangThaiDonHang === 1 && job.MaNhanVien === null) {
+          if (job.LyDoHuy && job.LyDoHuy.startsWith('BLOCKED:')) {
+            const blockedIds = job.LyDoHuy.replace('BLOCKED:', '').split(',');
+            if (blockedIds.includes(providerId.toString())) {
+              return false; // Bị chặn, không hiển thị
+            }
+          }
+        }
+        return true;
+      });
+
+      return success(res, filteredJobs, 'Lấy danh sách công việc thành công');
     } catch (err) {
       next(err);
     }
@@ -141,6 +155,14 @@ class ProviderController {
       const hoso = await HoSoNhanVien.findOne({ where: { MaNhanVien: providerId } });
       if (!hoso || hoso.TrangThaiDuyet !== 1 || !hoso.TrangThaiHoatDong) {
         return error(res, 'Hồ sơ của bạn chưa được Admin duyệt hoặc trạng thái hoạt động đang tắt', 400);
+      }
+
+      // Kiểm tra xem nhân viên này có bị khách hàng chặn không (vì đổi/từ chối trước đó)
+      if (job.LyDoHuy && job.LyDoHuy.startsWith('BLOCKED:')) {
+        const blockedIds = job.LyDoHuy.replace('BLOCKED:', '').split(',');
+        if (blockedIds.includes(providerId.toString())) {
+          return error(res, 'Bạn không thể nhận ca làm việc này vì khách hàng đã đổi hoặc từ chối bạn trước đó.', 403);
+        }
       }
 
       // Trường hợp 1: Ca đã gán cho nhân viên này, đang chờ xác nhận (status 0)
