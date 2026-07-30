@@ -331,7 +331,6 @@ class ProviderController {
       tx = await sequelize.transaction();
 
       // 1. Cập nhật trạng thái ca làm việc → Hoàn thành (2) và ghi nhận số tiền chờ thanh toán
-      const now = new Date();
       await job.update({
         TrangThaiDonHang: 2, // 2: Hoàn thành
         TienNhanVienNhan: tienNhanVien,
@@ -427,6 +426,9 @@ class ProviderController {
 
       if (!amount || amount <= 0) {
         return error(res, 'Số tiền rút phải lớn hơn 0', 400);
+      }
+      if (amount > 10000000) {
+        return error(res, 'Số tiền rút tối đa mỗi lần là 10.000.000 VNĐ', 400);
       }
 
       let wallet = await ViTien.findOne({ where: { MaNguoiDung: providerId } });

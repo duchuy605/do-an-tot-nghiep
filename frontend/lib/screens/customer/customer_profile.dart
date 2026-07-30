@@ -144,7 +144,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         title: const Text('Đăng Xuất', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('Bạn có chắc chắn muốn đăng xuất tài khoản?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy', style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Đăng xuất', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
         ],
       ),

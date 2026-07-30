@@ -1194,6 +1194,9 @@ class CustomerController {
       if (SoTien <= 0) {
         return error(res, 'Số tiền nạp phải lớn hơn 0', 400);
       }
+      if (SoTien > 10000000) {
+        return error(res, 'Số tiền nạp tối đa mỗi lần là 10.000.000 VNĐ', 400);
+      }
 
       const wallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
       if (!wallet) {
