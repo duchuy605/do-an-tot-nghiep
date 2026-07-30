@@ -12,6 +12,13 @@ const sequelize = require('../config/database');
  * 
  * Giao dịch chuyển tiền được thực hiện dưới dạng Transaction trong cơ sở dữ liệu để đảm bảo tính nhất quán (trừ tiền hệ thống, cộng tiền nhân viên và ghi lịch sử giao dịch thành công đồng thời).
  */
+function parseDbDate(dateStr) {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) return dateStr;
+  const str = String(dateStr);
+  if (str.includes('+') || str.endsWith('Z')) return new Date(str);
+  return new Date(str.replace(' ', 'T') + '+07:00');
+}
 async function checkAndExecutePayoutsForProvider(providerId) {
   let tx;
   try {
@@ -50,11 +57,11 @@ async function checkAndExecutePayoutsForProvider(providerId) {
       // Xác định thời gian hoàn tất ca
       let finishDate;
       if (shift.NgayHoanThanh) {
-        finishDate = new Date(shift.NgayHoanThanh);
+        finishDate = parseDbDate(shift.NgayHoanThanh);
       } else if (shift.NgayCapNhat) {
-        finishDate = new Date(shift.NgayCapNhat);
+        finishDate = parseDbDate(shift.NgayCapNhat);
       } else {
-        finishDate = new Date(shift.NgayLamViec + 'T' + shift.GioKetThuc);
+        finishDate = new Date(shift.NgayLamViec + 'T' + shift.GioKetThuc + '+07:00');
       }
 
       if (hasComplaints) {

@@ -250,7 +250,12 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                       // Thời gian
                       _buildInfoRow(Icons.access_time_rounded, 'Khung giờ: $gioBatDau - $gioKetThuc'),
                       const SizedBox(height: 10),
-                      _buildInfoRow(Icons.timelapse_rounded, 'Thời lượng: ${widget.durationHours} giờ/buổi'),
+                      _buildInfoRow(Icons.timelapse_rounded, () {
+                        final h = widget.durationHours.floor();
+                        final m = ((widget.durationHours - h) * 60).round();
+                        final label = (m == 0) ? '$h giờ/buổi' : '$h giờ $m phút/buổi';
+                        return 'Thời lượng: $label';
+                      }()),
                       const SizedBox(height: 10),
 
                       // Ngày

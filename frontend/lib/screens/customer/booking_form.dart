@@ -178,7 +178,7 @@ Future<void> _selectTime(BuildContext context) async {
         bookingData: bookingData,
         mainService: widget.service,
         additionalServices: additionalServices,
-        durationHours: _viewModel.durationHours,
+        durationHours: _viewModel.totalDurationHours,
         bookingType: _viewModel.bookingType,
       ),
     ),
@@ -613,7 +613,7 @@ Future<void> _selectTime(BuildContext context) async {
                                       // Hiển thị cố định 1 giờ khi đã chọn
                                       if (isSelected)
                                         Text(
-                                          '1 giờ',
+                                          '${svc.soGioQuyDinh} giờ',
                                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: orangeColor),
                                         ),
                                     ],
@@ -623,6 +623,36 @@ Future<void> _selectTime(BuildContext context) async {
                                   }).toList(),
                                   const SizedBox(height: 4),
                                   const Divider(),
+
+                                  // Banner tổng thời gian khi có dịch vụ bổ sung
+                                  if (_viewModel.selectedAdditionalServices.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Builder(builder: (ctx) {
+                                      final total = _viewModel.totalDurationHours;
+                                      final extra = total - _viewModel.baseDurationHours;
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: orangeColor.withOpacity(0.07),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: orangeColor.withOpacity(0.3)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.access_time_rounded, size: 18, color: orangeColor),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Tổng thời gian: ${_formatDuration(total)}  (+${_formatDuration(extra)} dịch vụ bổ sung)',
+                                                style: const TextStyle(fontSize: 13, color: orangeColor, fontWeight: FontWeight.w600),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                    const SizedBox(height: 4),
+                                  ],
                                 ],
                               );
                             },

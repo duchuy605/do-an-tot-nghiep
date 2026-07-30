@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/provider_calendar_dialog.dart';
+import '../../widgets/custom_time_picker.dart';
 import '../../viewmodels/provider/my_jobs_viewmodel.dart';
 import '../../widgets/top_banner_notification.dart';
 import '../../widgets/weekly_calendar_widget.dart';
@@ -291,13 +292,22 @@ class MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSta
                 title: const Text('Giờ bắt đầu'),
                 subtitle: Text(startTime.format(context)),
                 onTap: () async {
-                  final picked = await showTimePicker(context: context, initialTime: startTime);
-                  if (picked != null) {
-                    setDialogState(() {
-                      startTime = picked;
-                      checkConflict();
-                    });
-                  }
+                  await showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) {
+                      return CustomTimePicker(
+                        initialTime: startTime,
+                        onTimeSelected: (TimeOfDay picked) {
+                          setDialogState(() {
+                            startTime = picked;
+                            checkConflict();
+                          });
+                        },
+                      );
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 8),

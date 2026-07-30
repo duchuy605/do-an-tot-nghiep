@@ -68,6 +68,26 @@ class BookingFormViewModel extends ChangeNotifier {
   bool get isCalculatingPrice => _isCalculatingPrice;
   List<Map<String, dynamic>> get providerBusyShifts => _providerBusyShifts;
 
+  /// Giờ dịch vụ chính (do người dùng chọn qua dropdown)
+  double get baseDurationHours => _durationHours;
+
+  /// Tổng số giờ làm việc = giờ dịch vụ chính + giờ các dịch vụ bổ sung đã chọn
+  /// Mỗi dịch vụ bổ sung đóng góp (soGioQuyDinh * soLuong) giờ vào tổng
+  double get totalDurationHours {
+    double extra = 0;
+    for (final entry in _selectedAdditionalServices.entries) {
+      final svc = _availableServices.firstWhere(
+        (s) => s.maDichVu == entry.key,
+        orElse: () => ServiceModel(
+          maDichVu: 0, tenDichVu: '', motaDichVu: '',
+          soGioQuyDinh: 1, donGia: 0, trangThai: false,
+        ),
+      );
+      extra += svc.soGioQuyDinh * entry.value;
+    }
+    return _durationHours + extra;
+  }
+
   /// Thiết lập ID dịch vụ chính và tự động gọi API tính toán lại giá tiền tạm tính
   void setMainServiceId(int id) {
     _mainServiceId = id;
@@ -353,7 +373,7 @@ class BookingFormViewModel extends ChangeNotifier {
     
     // Định dạng giờ bắt đầu và tính toán giờ kết thúc thành chuỗi HH:mm:ss
     final String gioBatDauStr = _formatTimeOfDay(_startTime);
-    final String gioKetThucStr = _calculateEndTime(_startTime, _durationHours);
+    final String gioKetThucStr = _calculateEndTime(_startTime, totalDurationHours);
 
     return {
       'LoaiDatLich': _bookingType, // 1: Một lần, 2: Định kỳ

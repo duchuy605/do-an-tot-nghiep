@@ -9,6 +9,7 @@ import 'complaint_list.dart';
 import 'special_day_crud.dart';
 import 'time_slot_crud.dart';
 import 'package_crud.dart';
+import '../customer/customer_notifications.dart';
 
 class AdminMainScreen extends StatefulWidget {
   const AdminMainScreen({super.key});
@@ -42,6 +43,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     const SpecialDayCrudScreen(),
     const TimeSlotCrudScreen(),
     const PackageCrudScreen(),
+    const CustomerNotificationsScreen(hideAppBar: true),
   ];
 
   final List<String> _titles = [
@@ -53,6 +55,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     'Quản Lý Ngày Lễ Tết',
     'Quản Lý Khung Giờ',
     'Quản Lý Gói Định Kỳ',
+    'Thông Báo Hệ Thống',
   ];
 
   Future<void> _handleLogout() async {
@@ -173,6 +176,15 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
               selected: _selectedIdx == 7,
               onTap: () {
                 setState(() => _selectedIdx = 7);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_active_rounded, color: orangeColor),
+              title: const Text('Thông báo hệ thống'),
+              selected: _selectedIdx == 8,
+              onTap: () {
+                setState(() => _selectedIdx = 8);
                 Navigator.pop(context);
               },
             ),
