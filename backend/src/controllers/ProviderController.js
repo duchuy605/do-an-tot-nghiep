@@ -289,13 +289,14 @@ class ProviderController {
         return error(res, 'Chỉ có thể hoàn thành ca làm việc đang ở trạng thái đã nhận', 400);
       }
 
-      // Kiểm tra ngày làm việc: chỉ cho hoàn thành khi đã đến ngày
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const ngayLam = new Date(job.NgayLamViec);
-      ngayLam.setHours(0, 0, 0, 0);
-      if (today < ngayLam) {
-        return error(res, `Chưa đến ngày làm việc (${job.NgayLamViec}). Không thể hoàn thành ca trước ngày hẹn.`, 400);
+      // Kiểm tra ngày giờ làm việc: chỉ cho hoàn thành khi đã qua thời gian kết thúc ca làm
+      const now = new Date();
+      // job.NgayLamViec có dạng 'YYYY-MM-DD', job.GioKetThuc có dạng 'HH:mm:ss' hoặc 'HH:mm'
+      const endDateTimeString = `${job.NgayLamViec}T${job.GioKetThuc}`;
+      const endDateTime = new Date(endDateTimeString);
+
+      if (now < endDateTime) {
+        return error(res, `Chưa đến thời gian kết thúc ca làm (${job.GioKetThuc} ngày ${job.NgayLamViec}). Không thể hoàn thành công việc sớm.`, 400);
       }
 
       const splitProvider = parseInt(process.env.REVENUE_SPLIT_PROVIDER || 80);

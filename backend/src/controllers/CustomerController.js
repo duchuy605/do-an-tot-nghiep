@@ -620,31 +620,90 @@ class CustomerController {
 
       tx = await sequelize.transaction();
 
-      // Nếu đã thanh toán (TrangThai = 2), thực hiện hoàn tiền
+      // Lấy tất cả ca làm việc chưa hoàn thành (0, 1) thuộc booking này để kiểm tra phạt
+      const activeJobs = await CaLamViec.findAll({
+        where: { MaDatLich: bookingId, TrangThaiDonHang: { [Op.in]: [0, 1] } }
+      });
+
+      let totalPenalty = 0;
+      let penalties = []; // Lưu danh sách nhân viên được nhận bồi thường
+      const now = new Date();
+
+      for (let job of activeJobs) {
+        // Chỉ phạt nếu ca làm ĐÃ CÓ nhân viên nhận
+        if (job.MaNhanVien) {
+          const jobStartStr = `${job.NgayLamViec}T${job.GioBatDau}`;
+          const jobStartTime = new Date(jobStartStr);
+          // Khoảng thời gian từ hiện tại đến lúc ca bắt đầu (tính bằng phút)
+          const diffMins = (jobStartTime - now) / 1000 / 60;
+          
+          // Phạt 10% nếu hủy sát giờ (<= 15 phút) hoặc đã qua giờ bắt đầu
+          if (diffMins <= 15) {
+            const penalty = parseFloat(job.TongTien) * 0.10;
+            totalPenalty += penalty;
+            penalties.push({
+              providerId: job.MaNhanVien,
+              jobId: job.MaCaLam,
+              amount: penalty
+            });
+          }
+        }
+      }
+
+      // Nếu đã thanh toán (TrangThai = 2), thực hiện hoàn tiền và chia tiền bồi thường
       if (booking.TrangThai === 2) {
         const price = parseFloat(booking.GiaGoi);
+        // Khách hàng nhận phần còn lại sau khi trừ tiền bồi thường cho nhân viên
+        const refundAmount = price - totalPenalty; 
+        
         const customerWallet = await ViTien.findOne({ where: { MaNguoiDung: customerId } });
         const systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
 
         if (customerWallet && systemWallet) {
-          // Trừ tiền từ ví tạm giữ hệ thống (Escrow)
+          // Trừ toàn bộ tiền từ ví tạm giữ hệ thống (Escrow)
           const newSysBalance = parseFloat(systemWallet.SoDu) - price;
           await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
 
-          // Cộng tiền hoàn lại vào ví khách hàng
-          const newCustBalance = parseFloat(customerWallet.SoDu) + price;
+          // Cộng tiền hoàn lại vào ví khách hàng (đã trừ phí phạt)
+          const newCustBalance = parseFloat(customerWallet.SoDu) + refundAmount;
           await customerWallet.update({ SoDu: newCustBalance }, { transaction: tx });
 
-          // Ghi lịch sử giao dịch hoàn tiền
+          // Ghi lịch sử giao dịch hoàn tiền cho khách (Loại 3: Hoàn tiền)
           await LichSuViTien.create({
             MaViNguon: systemWallet.MaViTien,
             MaViDich: customerWallet.MaViTien,
             MaDatLich: bookingId,
-            LoaiGiaoDich: 3, // 3: Hoàn tiền
-            SoTien: price,
+            LoaiGiaoDich: 3, 
+            SoTien: refundAmount,
             SoDuSau: newCustBalance,
             NgayTao: new Date()
           }, { transaction: tx });
+
+          // Phân bổ tiền bồi thường cho các nhân viên bị hủy ca sát giờ
+          for (let p of penalties) {
+            const providerWallet = await ViTien.findOne({ where: { MaNguoiDung: p.providerId } });
+            if (providerWallet) {
+              const newProvBalance = parseFloat(providerWallet.SoDu) + p.amount;
+              await providerWallet.update({ SoDu: newProvBalance }, { transaction: tx });
+
+              // Loại 5: Nhận bồi thường/thưởng
+              await LichSuViTien.create({
+                MaViNguon: systemWallet.MaViTien,
+                MaViDich: providerWallet.MaViTien,
+                MaDatLich: bookingId,
+                LoaiGiaoDich: 5, 
+                SoTien: p.amount,
+                SoDuSau: newProvBalance,
+                NgayTao: new Date()
+              }, { transaction: tx });
+
+              // Thông báo cho nhân viên được bồi thường
+              oCamManager.guiThongBaoNguoiDung(p.providerId, {
+                tieuDe: 'Bồi thường hủy ca sát giờ',
+                noiDung: `Khách hàng đã hủy ca làm #${p.jobId} sát giờ. Bạn được bồi thường ${p.amount.toLocaleString('vi-VN')} đ vào ví.`
+              });
+            }
+          }
         }
       }
 
