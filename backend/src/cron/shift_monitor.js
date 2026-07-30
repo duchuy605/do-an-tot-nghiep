@@ -3,8 +3,16 @@ const { Op } = require('sequelize');
 const { CaLamViec, NguoiDung } = require('../models');
 const oCamManager = require('../sockets/o_cam_manager');
 let isRunning = false;
+let cronScheduled = false;
 
 function startShiftMonitorCron() {
+  if (cronScheduled) {
+    console.log('[SHIFT MONITOR] startShiftMonitorCron called again, skipping duplicate schedule');
+    return;
+  }
+  cronScheduled = true;
+  console.log('[SHIFT MONITOR] Scheduling shift monitor cron');
+
   // Chạy mỗi phút 1 lần
   cron.schedule('* * * * *', async () => {
     if (isRunning) {
