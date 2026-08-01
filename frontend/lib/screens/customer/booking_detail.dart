@@ -74,7 +74,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+            child: const Text('Đóng', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () {
@@ -159,7 +159,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+              child: const Text('Hủy', style: TextStyle(color: Colors.black)),
             ),
             TextButton(
               onPressed: () async {
@@ -222,7 +222,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+            child: const Text('Đóng', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () async {
@@ -307,7 +307,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+            child: const Text('Đóng', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -549,7 +549,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Từ chối', style: TextStyle(color: Colors.grey)),
+                        child: const Text('Từ chối', style: TextStyle(color: Colors.black)),
                       ),
                       ElevatedButton(
                         onPressed: () => Navigator.pop(ctx, true),
@@ -605,7 +605,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+            child: const Text('Hủy', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),

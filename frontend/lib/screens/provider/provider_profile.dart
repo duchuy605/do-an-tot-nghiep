@@ -129,7 +129,7 @@ class ProviderProfileScreenState extends State<ProviderProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+            child: const Text('Hủy', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () async {
@@ -332,7 +332,7 @@ class ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                      '${double.tryParse(_viewModel.hoso?['SoSaoTrungBinh']?.toString() ?? '5.0')?.toStringAsFixed(1) ?? '5.0'} / 5.0',
                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: darkColor),
                                    ),
-                                  const Text('Đánh giá sao', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                  const Text('Đánh giá sao', style: TextStyle(fontSize: 11, color: Colors.black)),
                                 ],
                               ),
                               Column(

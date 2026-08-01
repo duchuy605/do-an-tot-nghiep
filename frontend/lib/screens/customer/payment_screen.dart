@@ -58,7 +58,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+              child: const Text('Hủy', style: TextStyle(color: Colors.black)),
             ),
             ElevatedButton(
               onPressed: () {

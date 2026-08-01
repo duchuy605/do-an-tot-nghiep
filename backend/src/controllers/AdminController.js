@@ -718,20 +718,23 @@ class AdminController {
         NgayXuLy: new Date()
       }, { transaction: tx });
 
-      // Xử lý hoàn tiền bồi thường: Nếu hình thức là "Hoàn tiền" (hoặc ID là 1)
-      if (hinhThuc.TenHinhThuc.toLowerCase().includes('hoàn tiền') || hinhThuc.TenHinhThuc.toLowerCase().includes('hoan tien') || MaHinhThucXuLy === 1) {
+      const isRefund = hinhThuc.TenHinhThuc.toLowerCase().includes('hoàn tiền') || hinhThuc.TenHinhThuc.toLowerCase().includes('hoan tien') || MaHinhThucXuLy === 1;
+      const isPenalty = hinhThuc.TenHinhThuc.toLowerCase().includes('trừ lương') || hinhThuc.TenHinhThuc.toLowerCase().includes('phạt') || MaHinhThucXuLy === 3;
+
+      // Xử lý hoàn tiền hoặc phạt tiền
+      if (isRefund || isPenalty) {
         const caLam = await CaLamViec.findByPk(complaint.MaCaLam);
         if (caLam) {
           const providerReceived = parseFloat(caLam.TongTien) - (parseFloat(caLam.TienHeThongNhan) || 0);
           const defaultPenalty = providerReceived * 0.20; // 20% số tiền nhân viên nhận được
           
-          const hoanTienAmount = SoTienDenBu ? parseFloat(SoTienDenBu) : defaultPenalty;
+          const amount = SoTienDenBu ? parseFloat(SoTienDenBu) : defaultPenalty;
 
-          if (hoanTienAmount > parseFloat(caLam.TongTien)) {
-            throw new Error(`Số tiền đền bù (${hoanTienAmount}) không được vượt quá số tiền thực tế ca làm (${caLam.TongTien})`);
+          if (amount > parseFloat(caLam.TongTien)) {
+            throw new Error(`Số tiền (${amount}) không được vượt quá số tiền thực tế ca làm (${caLam.TongTien})`);
           }
 
-          // Lấy thông tin các ví tiền liên quan
+          // Lấy thông vị trí các ví tiền liên quan
           const customerWallet = await ViTien.findOne({ where: { MaNguoiDung: complaint.MaNguoiGui } });
           const systemWallet = await ViTien.findOne({ where: { LoaiVi: 3 } });
           const providerWallet = await ViTien.findOne({ where: { MaNguoiDung: complaint.MaNguoiBiKhieuNai } });
@@ -741,7 +744,7 @@ class AdminController {
 
             if (caLam.DaThanhToan) {
               // Trường hợp 1: Đã thanh toán -> Trừ tiền trực tiếp từ ví nhân viên
-              providerPenalty = Math.min(hoanTienAmount, providerReceived);
+              providerPenalty = Math.min(amount, providerReceived);
               
               const newProvBalance = parseFloat(providerWallet.SoDu) - providerPenalty;
               await providerWallet.update({ SoDu: newProvBalance }, { transaction: tx });
@@ -762,7 +765,7 @@ class AdminController {
             } else if (caLam.TongTienTre !== null) {
               // Trường hợp 2: Chưa thanh toán -> Trừ bớt tiền đang chờ duyệt (pending payout) của nhân viên
               const currentPending = parseFloat(caLam.TongTienTre);
-              providerPenalty = Math.min(hoanTienAmount, currentPending);
+              providerPenalty = Math.min(amount, currentPending);
               const remainingPending = currentPending - providerPenalty;
               await caLam.update({ TongTienTre: remainingPending }, { transaction: tx });
               
@@ -779,27 +782,30 @@ class AdminController {
               }, { transaction: tx });
             }
 
-            // Trừ tiền bồi thường từ ví hệ thống để hoàn cho khách
-            const newSysBalance = parseFloat(systemWallet.SoDu) - hoanTienAmount;
-            await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
+            // Chỉ hoàn tiền cho khách nếu hình thức xử lý là Hoàn tiền
+            if (isRefund) {
+              // Trừ tiền bồi thường từ ví hệ thống để hoàn cho khách
+              const newSysBalance = parseFloat(systemWallet.SoDu) - amount;
+              await systemWallet.update({ SoDu: newSysBalance }, { transaction: tx });
 
-            // Cộng tiền bồi thường hoàn lại vào ví Khách hàng
-            const newCustBalance = parseFloat(customerWallet.SoDu) + hoanTienAmount;
-            await customerWallet.update({ SoDu: newCustBalance }, { transaction: tx });
+              // Cộng tiền bồi thường hoàn lại vào ví Khách hàng
+              const newCustBalance = parseFloat(customerWallet.SoDu) + amount;
+              await customerWallet.update({ SoDu: newCustBalance }, { transaction: tx });
 
-            // Ghi nhật ký giao dịch hoàn tiền bồi thường
-            await LichSuViTien.create({
-              MaViNguon: systemWallet.MaViTien,
-              MaViDich: customerWallet.MaViTien,
-              MaCaLam: caLam.MaCaLam,
-              MaKhieuNai: complaintId,
-              LoaiGiaoDich: 3, // 3: Hoàn tiền
-              SoTien: hoanTienAmount,
-              SoDuSau: newCustBalance,
-              NgayTao: new Date()
-            }, { transaction: tx });
+              // Ghi nhật ký giao dịch hoàn tiền bồi thường
+              await LichSuViTien.create({
+                MaViNguon: systemWallet.MaViTien,
+                MaViDich: customerWallet.MaViTien,
+                MaCaLam: caLam.MaCaLam,
+                MaKhieuNai: complaintId,
+                LoaiGiaoDich: 3, // 3: Hoàn tiền
+                SoTien: amount,
+                SoDuSau: newCustBalance,
+                NgayTao: new Date()
+              }, { transaction: tx });
 
-            console.log(`[HOÀN TIỀN THÀNH CÔNG] Đã hoàn ${hoanTienAmount} cho khách hàng #${complaint.MaNguoiGui} từ ca làm #${caLam.MaCaLam}`);
+              console.log(`[HOÀN TIỀN THÀNH CÔNG] Đã hoàn ${amount} cho khách hàng #${complaint.MaNguoiGui} từ ca làm #${caLam.MaCaLam}`);
+            }
           }
         }
       }

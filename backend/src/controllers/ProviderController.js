@@ -313,8 +313,8 @@ class ProviderController {
 
       // Kiểm tra ngày giờ làm việc: chỉ cho hoàn thành khi đã qua thời gian kết thúc ca làm
       const now = new Date();
-      // job.NgayLamViec có dạng 'YYYY-MM-DD', job.GioKetThuc có dạng 'HH:mm:ss' hoặc 'HH:mm'
-      const endDateTimeString = `${job.NgayLamViec}T${job.GioKetThuc}`;
+      // Thêm +07:00 để đảm bảo Node.js parse đúng múi giờ Việt Nam
+      const endDateTimeString = `${job.NgayLamViec}T${job.GioKetThuc}+07:00`;
       const endDateTime = new Date(endDateTimeString);
 
       if (now < endDateTime) {

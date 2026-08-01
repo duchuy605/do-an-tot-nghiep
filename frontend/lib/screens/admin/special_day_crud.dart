@@ -181,7 +181,7 @@ class _SpecialDayCrudScreenState extends State<SpecialDayCrudScreen> {
                 children: [
                   Icon(Icons.calendar_today_outlined, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
-                  const Text('Chưa cấu hình ngày đặc biệt nào', style: TextStyle(color: Colors.grey)),
+                  const Text('Chưa cấu hình ngày đặc biệt nào', style: TextStyle(color: Colors.black)),
                 ],
               ),
             );

@@ -102,7 +102,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+            child: const Text('Hủy', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () async {
@@ -381,7 +381,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                       'Thay đổi mật khẩu',
                                       style: TextStyle(fontWeight: FontWeight.bold, color: darkColor, fontSize: 14),
                                     ),
-                                    trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                                    trailing: const Icon(Icons.chevron_right_rounded, color: Colors.black),
                                     onTap: _showChangePasswordDialog,
                                   ),
                                 ],

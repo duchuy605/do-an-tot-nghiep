@@ -58,12 +58,10 @@ async function checkAndExecutePayoutsForProvider(providerId) {
       }
 
       if (hasComplaints) {
-        // Nếu có khiếu nại, giữ đủ 72 tiếng
-        if (finishDate > seventyTwoHoursAgo) return false;
-        
-        // Và khiếu nại phải được giải quyết xong mới được nhận tiền
+        // Nếu có khiếu nại, khiếu nại phải được giải quyết xong mới được nhận tiền
         const allResolved = shift.KhieuNais.every(k => k.TrangThaiXuLy === 2);
         if (!allResolved) return false;
+        // Ghi chú: Nếu Admin đã giải quyết, lập tức cho phép nhận tiền (bỏ chặn 72h)
       } else {
         // Nếu không có khiếu nại, giữ đủ 24 tiếng
         if (finishDate > twentyFourHoursAgo) return false;
@@ -78,11 +76,15 @@ async function checkAndExecutePayoutsForProvider(providerId) {
 
     let totalPayout = 0;
     for (const shift of validShifts) {
-      const amount = shift.TongTienTre !== null ? parseFloat(shift.TongTienTre) : parseFloat(shift.TienNhanVienNhan);
+      // Kiểm tra lại Database một lần nữa bằng CSDL để chống Double Spending (Race Condition)
+      const checkShift = await CaLamViec.findOne({ where: { MaCaLam: shift.MaCaLam, DaThanhToan: false }, transaction: tx });
+      if (!checkShift) continue;
+
+      const amount = checkShift.TongTienTre !== null ? parseFloat(checkShift.TongTienTre) : parseFloat(checkShift.TienNhanVienNhan);
       totalPayout += amount;
 
       // Đánh dấu đã thanh toán
-      await shift.update({ DaThanhToan: true, TongTienTre: amount }, { transaction: tx });
+      await checkShift.update({ DaThanhToan: true, TongTienTre: amount }, { transaction: tx });
     }
 
     if (totalPayout > 0) {
