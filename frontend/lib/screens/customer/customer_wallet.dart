@@ -178,23 +178,29 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
     );
   }
 
-  String _getTransactionTypeLabel(int type) {
+  String _getTransactionTypeLabel(Map<String, dynamic> tx) {
+    final int type = tx['LoaiGiaoDich'] ?? 1;
     switch (type) {
       case 1:
         return 'Nạp tiền ví';
       case 2:
         return 'Thanh toán lịch đặt';
       case 3:
-        return 'Hoàn tiền khiếu nại';
+        if (tx['MaKhieuNai'] != null) {
+          return 'Hoàn tiền khiếu nại';
+        }
+        return 'Hoàn tiền hủy đơn';
       case 4:
         return 'Thu nhập ca làm';
+      case 5:
+        return 'Bồi thường hủy ca';
       default:
         return 'Giao dịch khác';
     }
   }
 
   Color _getTransactionColor(int type) {
-    if (type == 1 || type == 3 || type == 4) {
+    if (type == 1 || type == 3 || type == 4 || type == 5) {
       return Colors.green;
     }
     return Colors.red;
@@ -202,7 +208,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
 
   String _formatAmount(double amt, int type) {
     final String formatted = NumberFormat('#,###', 'vi_VN').format(amt.toInt());
-    if (type == 1 || type == 3 || type == 4) {
+    if (type == 1 || type == 3 || type == 4 || type == 5) {
       return '+$formatted đ';
     }
     return '-$formatted đ';
@@ -376,7 +382,7 @@ class CustomerWalletScreenState extends State<CustomerWalletScreen> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                _getTransactionTypeLabel(type),
+                                                _getTransactionTypeLabel(tx),
                                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: darkColor),
                                               ),
                                               const SizedBox(height: 4),
