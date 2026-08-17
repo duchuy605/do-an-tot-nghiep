@@ -224,7 +224,8 @@ class CustomerController {
       duration,
       totalSessions: dates.length,
       packageDiscountPercent,
-      providerSurchargePercent: selectedProviderId ? 10 : 0
+      providerSurchargePercent: selectedProviderId ? 10 : 0,
+      durationCoeff
     };
   }
 
@@ -245,7 +246,8 @@ class CustomerController {
         totalSessions: calculation.totalSessions,
         packageDiscountPercent: calculation.packageDiscountPercent,
         providerSurchargePercent: calculation.providerSurchargePercent,
-        sessionDetails: calculation.sessionDetails
+        sessionDetails: calculation.sessionDetails,
+        durationCoeff: calculation.durationCoeff
       }, 'Tính giá thành công');
     } catch (err) {
       return error(res, err.message || 'Lỗi khi tính giá', 400);

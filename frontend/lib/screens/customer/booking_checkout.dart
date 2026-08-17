@@ -424,6 +424,19 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                           ],
                         ),
                       ],
+                      if (_viewModel.totalDurationDiscount > 0) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Giảm giá thời lượng ca', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                            Text(
+                              '-${_formatCurrency(_viewModel.totalDurationDiscount)}',
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: Colors.green),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (_viewModel.providerSurchargePercent > 0) ...[
                         const SizedBox(height: 8),
                         Row(

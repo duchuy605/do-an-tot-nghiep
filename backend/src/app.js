@@ -62,7 +62,7 @@ async function startServer() {
     startShiftMonitorCron();
 
     // Khởi động server
-    server.listen(PORT, () => {
+    server.listen(PORT,'0.0.0.0', () => {
       console.log(`Server đang chạy tại địa chỉ: http://localhost:${PORT}`);
     });
   } catch (error) {
